@@ -8,6 +8,7 @@
 
 ## 目录
 
+- [快速开始](#快速开始)
 - [1. 数学背景](#1-数学背景)
 - [2. 详细算法流程](#2-详细算法流程)
 - [3. 代码框架](#3-代码框架)
@@ -15,6 +16,30 @@
 - [5. 构建与运行](#5-构建与运行)
 - [6. 输出与可视化](#6-输出与可视化)
 - [7. 参考文献](#7-参考文献)
+- [8. 已知问题与待办](#8-已知问题与待办)
+
+---
+
+## 快速开始
+
+```bash
+# 1. 检查依赖是否就绪
+bash scripts/check_deps.sh        # macOS / Linux（Git Bash）
+
+# 2. 构建
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+
+# 3. 运行（算例 1, j=4, N=6）
+./build/wavelet_fem --example 1 --j 4 --N 6 --T 1.0 --dt 0.005
+
+# 4. 查看结果
+open results/heat_evolution.gif   # macOS
+xdg-open results/heat_evolution.gif  # Linux
+start results/heat_evolution.gif  # Windows
+```
+
+> **Windows 用户**：请先阅读 [4. 依赖与安装](#4-依赖与安装) 和 [5. 构建与运行](#5-构建与运行) 中的 Windows 章节。
 
 ---
 
@@ -436,96 +461,215 @@ int main(int argc, char* argv[]) {
 
 ### 4.1 依赖清单
 
-| 依赖 | 版本要求 | 用途 | 类型 |
-|------|---------|------|------|
-| **Eigen 3** | ≥ 3.4.0 | 线性代数（矩阵运算、Kronecker 积、LU 求解） | 纯头文件，无需编译 |
-| **GNUPlot** | ≥ 5.0 | 计算结果可视化（二维色图渲染、GIF 动画输出） | 系统安装，程序通过 `system()` 调用 |
-| **CMake** | ≥ 3.20 | 跨平台构建系统 | 系统安装 |
-| **C++ 编译器** | MSVC 2019+ / GCC 10+ / Clang 14+ | 支持 C++17 | 系统安装 |
+| 依赖 | 版本要求 | 用途 | 安装方式 |
+|------|---------|------|---------|
+| **C++ 编译器** | GCC ≥10 / Clang ≥14 / MSVC ≥2019 | C++17 编译 | 系统包管理器 |
+| **CMake** | ≥ 3.20 | 跨平台构建系统 | `brew install cmake` / `apt install cmake` / [官网下载](https://cmake.org/download/) |
+| **Eigen 3** | ≥ 3.4.0 | 矩阵运算、Kronecker 积、LU 求解 | 项目自带于 `external/eigen-3.4.0/`，无需额外安装 |
+| **GNUPlot** | ≥ 5.0 | 二维色图渲染、GIF 动画生成 | `brew install gnuplot` / `apt install gnuplot` / [官网下载](http://www.gnuplot.info/) |
 
-### 4.2 Windows 安装步骤
+> **说明**：Eigen 是纯头文件库（header-only），已随项目分发在 `external/` 目录中，CMake 会自动查找。GNUPlot 是运行时依赖——程序通过 `system()` 调用 `gnuplot` 命令生成 GIF，无需编译时链接。
 
-```powershell
-# ====== 1. 安装 CMake ======
-# 从 https://cmake.org/download/ 下载安装，或使用 winget：
-winget install Kitware.CMake
+### 4.2 依赖检查脚本
 
-# ====== 2. 安装 GNUPlot ======
-# 从 https://sourceforge.net/projects/gnuplot/files/gnuplot/ 下载安装
-# 或使用 winget：
-winget install gnuplot.gnuplot
+项目提供了自动化依赖检查脚本 `scripts/check_deps.sh`（macOS / Linux）和 `scripts/check_deps.ps1`（Windows PowerShell）。
 
-# ====== 3. 获取 Eigen ======
-# 切换到项目目录
-cd D:\WavePDE\WaveletFEM
-mkdir external
-Invoke-WebRequest -Uri "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip" -OutFile "external\eigen.zip"
-Expand-Archive external\eigen.zip -DestinationPath external
-```
-
-### 4.3 Linux / macOS 安装步骤
+**macOS / Linux：**
 
 ```bash
-# Ubuntu/Debian
-sudo apt install cmake build-essential gnuplot
+cd WaveletFEM
+bash scripts/check_deps.sh
+```
 
-# 如需 Eigen（也可使用 external/ 中的自带版本）
+输出示例（全部通过时）：
+```
+=== WaveletFEM Dependency Check ===
+[OK] C++ compiler: Apple Clang 17.0.0 (C++17 supported)
+[OK] CMake 4.3.3
+[OK] GNUPlot 6.0
+[OK] Eigen: external/eigen-3.4.0/Eigen/Core
+=== All dependencies satisfied ===
+```
+
+**Windows（PowerShell）：**
+
+```powershell
+cd D:\WavePDE\WaveletFEM
+.\scripts\check_deps.ps1
+```
+
+> 若 PowerShell 提示"无法加载脚本"，请先执行 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`。
+
+### 4.3 macOS 安装步骤
+
+```bash
+# 安装 Homebrew（如尚未安装）
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 安装所有依赖
+brew install cmake gnuplot
+
+# Eigen 已自带于 external/，无需额外安装
+# 验证 Eigen：
+test -f external/eigen-3.4.0/Eigen/Core && echo "Eigen OK" || echo "Eigen MISSING — 请重新下载"
+```
+
+### 4.4 Ubuntu / Debian 安装步骤
+
+```bash
+# 安装编译器和构建工具
+sudo apt update
+sudo apt install build-essential cmake gnuplot
+
+# Eigen 已自带于 external/，也可安装系统版本（可选）
 sudo apt install libeigen3-dev
 
-# macOS (Homebrew)
-brew install cmake eigen gnuplot
+# 验证
+bash scripts/check_deps.sh
 ```
+
+### 4.5 Windows 安装步骤
+
+Windows 上有两种推荐的安装方式：**winget（快速）** 或 **手动安装**。
+
+#### 方式一：winget（推荐）
+
+在 **PowerShell（管理员）** 中执行：
+
+```powershell
+# 安装 CMake
+winget install Kitware.CMake
+
+# 安装 GNUPlot
+winget install gnuplot.gnuplot
+
+# 将 GNUPlot 添加到 PATH（安装后重启终端或手动添加）
+# 默认路径：C:\Program Files\gnuplot\bin
+```
+
+安装后**重启终端**，验证：
+```powershell
+cmake --version
+gnuplot --version
+```
+
+#### 方式二：手动安装
+
+1. **CMake**：从 https://cmake.org/download/ 下载 Windows x64 Installer，安装时勾选 "Add CMake to system PATH"。
+2. **GNUPlot**：从 https://sourceforge.net/projects/gnuplot/files/gnuplot/ 下载 `gpXXX-win64-mingw.exe`，安装后确保 `gnuplot.exe` 所在目录在 PATH 中。
+3. **Eigen**：已自带于 `external/eigen-3.4.0/`，无需手动操作。
+
+#### 关于 Eigen 的特别说明
+
+Eigen 库已随项目分发在 `external/eigen-3.4.0/` 目录中。如果你是从 Git 克隆的项目，请确保 Eigen 文件完整：
+
+```powershell
+# 检查 Eigen 核心文件是否存在
+Test-Path external\eigen-3.4.0\Eigen\Core
+# 应输出 True
+
+# 如果缺失（macOS 上 git clone 可能因大小写不敏感
+# 导致 Eigen/Core 被 .gitignore 排除），执行：
+git add -f external/eigen-3.4.0/Eigen/Core
+```
+
+#### MSVC 编译器
+
+Windows 上推荐使用 Visual Studio 2022（Community 版免费）：
+
+1. 从 https://visualstudio.microsoft.com/downloads/ 下载 Visual Studio 2022 Community
+2. 安装时勾选 **"使用 C++ 的桌面开发"** 工作负荷
+3. 安装后通过 **"Developer Command Prompt for VS 2022"** 或 **"x64 Native Tools Command Prompt"** 执行构建命令
+
+### 4.6 验证安装
+
+运行依赖检查脚本确认所有依赖就绪：
+
+| 平台 | 命令 |
+|------|------|
+| macOS / Linux | `bash scripts/check_deps.sh` |
+| Windows | `.\scripts\check_deps.ps1` |
+
+四项全部显示 `[OK]` 即可进入构建步骤。
 
 ---
 
 ## 5. 构建与运行
 
-### 5.1 配置与编译
+### 5.1 macOS / Linux
 
 ```bash
 cd WaveletFEM
 
-# 配置（macOS / Linux）
+# 配置（Release 模式，开启优化）
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
-# 编译
-cmake --build build
+# 编译（使用所有 CPU 核心）
+cmake --build build -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 
-# 运行
+# 运行算例 1（默认参数）
 ./build/wavelet_fem --example 1
+
+# 运行算例 2
+./build/wavelet_fem --example 2
+
+# 自定义参数示例
+./build/wavelet_fem --example 1 --j 5 --N 8 --T 0.5 --dt 0.001 --fixed-dt
 ```
 
-### 5.2 运行选项
+### 5.2 Windows
 
-```
-wavelet_fem --example 1      # 运行例 1 (Robin BC)
-wavelet_fem --example 2      # 运行例 2 (Neumann BC)
-wavelet_fem --example 1 --j 5 --dt 0.001 --variable-dt
+在 **"Developer Command Prompt for VS 2022"** 或 **"x64 Native Tools Command Prompt"** 中执行：
+
+```cmd
+cd D:\WavePDE\WaveletFEM
+
+REM 配置（Release 模式）
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+REM 编译
+cmake --build build --config Release
+
+REM 运行
+.\build\Release\wavelet_fem.exe --example 1
 ```
 
-### 5.3 CMakeLists.txt 说明
+> **提示**：如果 `gnuplot` 不在 PATH 中，GIF 生成步骤会失败，但 `.dat` 数据文件仍会正常输出。你可以手动执行 `gnuplot results/plot_script.gp` 来生成 GIF。
+
+### 5.3 运行选项
+
+| 选项 | 默认值 | 说明 |
+|------|--------|------|
+| `--example N` | `1` | 算例编号（1=Robin BC, 2=Neumann BC） |
+| `--j LEVEL` | `4` | 分辨率级别（越大越精细，建议 2–6） |
+| `--N ORDER` | `6` | Daubechies 小波阶数（建议 4, 6, 8, 10） |
+| `--dt DT` | `0.005` | 初始时间步长 |
+| `--T TIME` | `1.0` | 终止时间 |
+| `--fixed-dt` | — | 使用固定时间步长 |
+| `--variable-dt` | （默认） | 使用变时间步长策略 |
+| `--help` | — | 显示帮助信息 |
+
+### 5.4 典型运行参数
+
+| 用途 | 命令 | 预计耗时 |
+|------|------|---------|
+| 快速验证 | `--j 2 --N 4 --T 0.1 --dt 0.01` | < 1 分钟 |
+| 中等精度 | `--j 4 --N 6 --T 1.0 --dt 0.005` | 5–15 分钟 |
+| 高精度 | `--j 5 --N 8 --T 1.0 --dt 0.001` | 30–90 分钟 |
+
+### 5.5 CMakeLists.txt 关键说明
 
 ```cmake
-cmake_minimum_required(VERSION 3.20)
-project(WaveletFEM VERSION 1.0 LANGUAGES CXX)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# ---------- Eigen ----------
-# 优先使用系统安装的 Eigen，否则回退到 external/
-find_package(Eigen3 QUIET)
-if(NOT Eigen3_FOUND)
-    set(EIGEN3_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/eigen-3.4.0")
-    message(STATUS "Using bundled Eigen: ${EIGEN3_INCLUDE_DIR}")
-endif()
-
-# ---------- 可执行文件 ----------
-file(GLOB_RECURSE SOURCES src/*.cpp)
-add_executable(wavelet_fem ${SOURCES})
-target_include_directories(wavelet_fem PRIVATE src ${EIGEN3_INCLUDE_DIR})
-
-# GNUPlot 为运行时外部调用，无需编译时链接
+# Eigen 查找策略：
+#   1. 优先使用 external/eigen-3.4.0/（项目自带）
+#   2. 回退到系统安装的 Eigen（如 apt/brew 安装的版本）
+#   3. 若两者均不存在，CMake 配置阶段报错并退出
+#
+# GNUPlot 为运行时外部调用，程序通过 system("gnuplot ...") 执行，
+# 编译阶段不链接任何 GNUPlot 库。
+#
+# Windows 用户：CMake 会自动检测 Visual Studio 生成器，
+# 无需额外指定 -G 参数。
 ```
 
 ---
@@ -595,3 +739,40 @@ graph LR
 3. Dahmen W, Micchelli C A. *Using the refinement equation for evaluating integrals of wavelets* [J]. SIAM Journal of Numerical Analysis, 1993, 30: 507–537.
 4. Behiry S H, Hashish H, Gomaa A M. *Fast algorithms for computing bounded interval connection coefficients* [J]. Ain Shams Journal of Physics Engineering and Mathematics, 2001, 37: 707–726.
 5. **Hashish H, Behiry S H, Elsaid A.** ***Solving the 2-D heat equations using wavelet-Galerkin method with variable time step*** **[J]. Applied Mathematics and Computation, 2009, 213: 209–215.**
+
+---
+
+## 8. 已知问题与待办
+
+### 8.1 边界基函数的奇异性问题
+
+在小波-Galerkin 方法中，Daubechies 小波基在有限区间边界处存在**退化现象**：靠近区间边界的基函数支撑集截断，导致相关行/列的质量矩阵（Ā）和刚度矩阵（C̄）条目远小于内部基函数对应值，使系统矩阵接近奇异。
+
+**现象**：
+- 初始条件投影可正常求解（j≤3 时 L² 误差约 0.5%–8%）
+- 时间推进第一步后解急剧发散（误差从 ~0.01 跳变至 ~10³⁸）
+
+**可能修复方向**：
+- 在边界行施加额外的正则化或惩罚项
+- 使用边界修正的小波基（boundary-adapted wavelets）
+- 采用迭代求解器 + 预条件子替代直接 LU 分解
+- 参考 Cohen, Daubechies, Vial (1993) 的边界小波构造方法
+
+### 8.2 级联算法精度
+
+当前 φ(x) 的级联算法从 Kronecker delta 出发迭代约 26 次（level 14 + 12），在支撑集内部精度良好，但在支撑集边缘（x→0 和 x→2N-1）存在轻微震荡。这对连接系数的数值积分精度有影响。
+
+**改进方向**：增加级联迭代次数到 level+15 或使用更精细的求积方案。
+
+### 8.3 变时间步长策略
+
+变步长逻辑已部分实现（每 10 步将 Δt 增大 1.5 倍），但尚未根据解的瞬态行为（如 ‖∂u/∂t‖ 估计）来自适应调整步长。当前直接使用固定倍率递增。
+
+### 8.4 待实现功能
+
+- [ ] 边界条件处理的数值稳定性改进
+- [ ] 自适应时间步长（基于解的变化率）
+- [ ] 更多算例（Dirichlet 边界、变系数 PDE）
+- [ ] 收敛性分析（h-收敛 和 p-收敛 自动测试）
+- [ ] 角点边界条件的正确处理（目前按先 x 后 y 覆盖）
+- [ ] Windows 上的自动化 CI 测试（GitHub Actions）
