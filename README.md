@@ -1,6 +1,6 @@
 # WaveletFEM
 
-基于**小波-Galerkin 方法（Wavelet-Galerkin Method）**求解二维非齐次热传导方程的有限元程序。支持变时间步长策略以抑制长时间积分的误差累积，并使用 VTK 输出随时间演化的三维可视化结果。
+基于**小波-Galerkin 方法（Wavelet-Galerkin Method）**求解二维非齐次热传导方程的有限元程序。支持变时间步长策略以抑制长时间积分的误差累积，并使用 GNUPlot 输出随时间演化的二维动态 GIF 可视化结果。
 
 > 参考论文：Hashish H, Behiry S H, Elsaid A. *Solving the 2-D heat equations using wavelet-Galerkin method with variable time step* [J]. Applied Mathematics and Computation, 2009, 213: 209–215.
 
@@ -229,7 +229,7 @@ graph TD
     P --> J
     N -->|否| Q["输出 ũ(x,y,t) 及误差"]
     
-    Q --> R["VTK: 写 .vts + .pvd"]
+    Q --> R["GNUPlot: 写 .dat + 生成 .gif"]
 ```
 
 ---
@@ -252,11 +252,11 @@ wavelet-fem/
 │   ├── connection_coeff.h / .cpp  # 连接系数 C_k^n(x) 与 M_k^r(x) 计算
 │   ├── wavelet_fem.h / .cpp       # 核心求解器
 │   ├── examples.h / .cpp          # 算例 1 & 2 的函数定义
-│   └── vtk_output.h / .cpp        # VTK 数据输出与 PVD 集合文件
+│   └── gnuplot_output.h / .cpp    # GNUPlot 数据输出与 GIF 动画生成
 ├── results/                       # 计算结果输出目录
-│   ├── step_0000.vts
-│   ├── step_0001.vts
-│   └── animation.pvd
+│   ├── step_0000.dat
+│   ├── step_0001.dat
+│   └── heat_evolution.gif
 └── scripts/                       # 辅助脚本
     └── run_examples.ps1           # 批量运行算例
 ```
@@ -338,9 +338,9 @@ public:
     // 重构近似解 u(x, y, t_n) 在给定点上的值
     double reconstruct(double x, double y, int step) const;
 
-    // 获取网格信息（供 VTK 输出使用）
+    // 获取网格信息（供 GNUPlot 输出使用）
     int num_basis() const { return n_; }
-    double dx_vtk() const { return (bx_ - ax_) / (nviz_ - 1); }
+    double dx_viz() const { return (bx_ - ax_) / (nviz_ - 1); }
 
 private:
     // 组装一维质量矩阵和刚度矩阵
@@ -371,19 +371,23 @@ private:
 | **行为** | $x$ 方向指数衰减，$y$ 方向正弦振荡 | 二维指数衰减扩散 |
 | **趋于稳态** | $u \to e^{-2x}\sin(\pi y/2)$ | $u \to 1$（均匀分布） |
 
-#### `vtk_output.h / .cpp`
+#### `gnuplot_output.h / .cpp`
 
 ```cpp
-// 单步输出：将 u(x,y,t_n) 写入 .vts 文件（VTK StructuredGrid XML 格式）
-void write_timestep_vts(const std::string& filename,
+// 单步输出：将重构解 u(x,y,t_n) 在规则网格上求值，写入纯文本 .dat 文件（空格分隔）
+void write_timestep_dat(const std::string& filename,
                         const Eigen::MatrixXd& U,
                         const WaveletFEMSolver& solver,
-                        double t);
+                        double t,
+                        int nx = 100, int ny = 100);
 
-// 生成 .pvd 聚合文件，在 ParaView 中打开可播放时间动画
-void write_pvd_collection(const std::string& filename,
-                          const std::vector<std::string>& vts_files,
-                          const std::vector<double>& timestamps);
+// 生成 GNUPlot 脚本并调用 gnuplot 生成动画 GIF
+// dat_files 和 timestamps 按时间步顺序一一对应
+void generate_gif(const std::string& output_gif,
+                  const std::vector<std::string>& dat_files,
+                  const std::vector<double>& timestamps,
+                  const std::string& title = "2D Heat Equation Evolution",
+                  int delay_ms = 10);
 ```
 
 ### 3.3 主程序流程
@@ -410,14 +414,17 @@ int main(int argc, char* argv[]) {
     // 4. 求解
     auto history = solver.solve();  // 返回各时间步的 U 矩阵
 
-    // 5. 输出 VTK
+    // 5. 输出 .dat 数据文件并生成 GIF
+    std::vector<std::string> dat_files;
+    std::vector<double> timestamps;
     for (int step = 0; step < history.size(); ++step) {
-        double t = step * config.dt0;  // 或变步长时间
-        write_timestep_vts(
-            fmt::format("results/step_{:04d}.vts", step),
-            history[step], solver, t);
+        double t = solver.get_timestamps()[step];  // 实际时间（考虑变步长）
+        std::string fname = fmt::format("results/step_{:04d}.dat", step);
+        write_timestep_dat(fname, history[step], solver, t);
+        dat_files.push_back(fname);
+        timestamps.push_back(t);
     }
-    write_pvd_collection("results/animation.pvd", vts_files, timestamps);
+    generate_gif("results/heat_evolution.gif", dat_files, timestamps);
 
     return 0;
 }
@@ -432,7 +439,7 @@ int main(int argc, char* argv[]) {
 | 依赖 | 版本要求 | 用途 | 类型 |
 |------|---------|------|------|
 | **Eigen 3** | ≥ 3.4.0 | 线性代数（矩阵运算、Kronecker 积、LU 求解） | 纯头文件，无需编译 |
-| **VTK** | ≥ 9.0 | 计算结果可视化（结构化网格输出、动画） | 需编译或安装二进制包 |
+| **GNUPlot** | ≥ 5.0 | 计算结果可视化（二维色图渲染、GIF 动画输出） | 系统安装，程序通过 `system()` 调用 |
 | **CMake** | ≥ 3.20 | 跨平台构建系统 | 系统安装 |
 | **C++ 编译器** | MSVC 2019+ / GCC 10+ / Clang 14+ | 支持 C++17 | 系统安装 |
 
@@ -443,18 +450,12 @@ int main(int argc, char* argv[]) {
 # 从 https://cmake.org/download/ 下载安装，或使用 winget：
 winget install Kitware.CMake
 
-# ====== 2. 安装 vcpkg（如果还没有）======
-cd C:\
-git clone https://github.com/Microsoft/vcpkg.git
-cd vcpkg
-.\bootstrap-vcpkg.bat
-.\vcpkg integrate install
+# ====== 2. 安装 GNUPlot ======
+# 从 https://sourceforge.net/projects/gnuplot/files/gnuplot/ 下载安装
+# 或使用 winget：
+winget install gnuplot.gnuplot
 
-# ====== 3. 用 vcpkg 安装 VTK 和 Eigen ======
-.\vcpkg install vtk:x64-windows      # VTK 编译约需 30-60 分钟
-.\vcpkg install eigen3:x64-windows   # 头文件，很快
-
-# ====== 4. 获取 Eigen（备选方案：手动下载）======
+# ====== 3. 获取 Eigen ======
 # 切换到项目目录
 cd D:\WavePDE\WaveletFEM
 mkdir external
@@ -466,47 +467,35 @@ Expand-Archive external\eigen.zip -DestinationPath external
 
 ```bash
 # Ubuntu/Debian
-sudo apt install cmake build-essential
-sudo apt install libvtk9-dev libeigen3-dev
+sudo apt install cmake build-essential gnuplot
+
+# 如需 Eigen（也可使用 external/ 中的自带版本）
+sudo apt install libeigen3-dev
 
 # macOS (Homebrew)
-brew install cmake vtk eigen
-
-# 或使用 vcpkg（跨平台统一方案）
-git clone https://github.com/Microsoft/vcpkg.git ~/vcpkg
-cd ~/vcpkg && ./bootstrap-vcpkg.sh
-./vcpkg install vtk eigen3
+brew install cmake eigen gnuplot
 ```
 
 ---
 
 ## 5. 构建与运行
 
-### 5.1 使用 vcpkg 构建
+### 5.1 配置与编译
 
-```powershell
-cd D:\WavePDE\WaveletFEM
+```bash
+cd WaveletFEM
 
-# 配置（指定 vcpkg 工具链）
-cmake -B build -S . `
-  -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
-  -DCMAKE_BUILD_TYPE=Release
+# 配置（macOS / Linux）
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
 # 编译
-cmake --build build --config Release
+cmake --build build
 
 # 运行
-.\build\Release\wavelet_fem.exe --example 1
+./build/wavelet_fem --example 1
 ```
 
-### 5.2 使用系统 VTK 构建
-
-```powershell
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
-```
-
-### 5.3 运行选项
+### 5.2 运行选项
 
 ```
 wavelet_fem --example 1      # 运行例 1 (Robin BC)
@@ -514,7 +503,7 @@ wavelet_fem --example 2      # 运行例 2 (Neumann BC)
 wavelet_fem --example 1 --j 5 --dt 0.001 --variable-dt
 ```
 
-### 5.4 CMakeLists.txt 说明
+### 5.3 CMakeLists.txt 说明
 
 ```cmake
 cmake_minimum_required(VERSION 3.20)
@@ -524,30 +513,19 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ---------- Eigen ----------
-# 优先使用 vcpkg 安装的 Eigen，否则回退到 external/
+# 优先使用系统安装的 Eigen，否则回退到 external/
 find_package(Eigen3 QUIET)
 if(NOT Eigen3_FOUND)
     set(EIGEN3_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/eigen-3.4.0")
     message(STATUS "Using bundled Eigen: ${EIGEN3_INCLUDE_DIR}")
 endif()
 
-# ---------- VTK ----------
-find_package(VTK REQUIRED COMPONENTS
-    CommonCore CommonDataModel
-    IOXML IOParallelXML
-    InteractionStyle RenderingCore RenderingOpenGL2
-    FiltersSources FiltersCore
-)
-vtk_module_autoinit(
-    TARGETS wavelet_fem
-    MODULES ${VTK_LIBRARIES}
-)
-
 # ---------- 可执行文件 ----------
 file(GLOB_RECURSE SOURCES src/*.cpp)
 add_executable(wavelet_fem ${SOURCES})
 target_include_directories(wavelet_fem PRIVATE src ${EIGEN3_INCLUDE_DIR})
-target_link_libraries(wavelet_fem PRIVATE ${VTK_LIBRARIES})
+
+# GNUPlot 为运行时外部调用，无需编译时链接
 ```
 
 ---
@@ -556,37 +534,56 @@ target_link_libraries(wavelet_fem PRIVATE ${VTK_LIBRARIES})
 
 ### 6.1 输出文件
 
-每个时间步生成一个 VTK 结构化网格文件（`.vts`）：
+每个时间步将重构解在规则网格上求值，写入纯文本数据文件（`.dat`，空格分隔列）：
 
 ```
 results/
-├── step_0000.vts          # t = 0.000
-├── step_0001.vts          # t = 0.005
-├── step_0002.vts          # t = 0.010
+├── step_0000.dat          # t = 0.000
+├── step_0001.dat          # t = 0.005
+├── step_0002.dat          # t = 0.010
 ├── ...
-└── animation.pvd          # ParaView 时间集合文件
+├── heat_evolution.gif     # 最终生成的动画 GIF
+└── plot_script.gp         # 自动生成的 GNUPlot 脚本（可手动调整后重运行）
 ```
 
-### 6.2 在 ParaView 中查看
+### 6.2 查看动画 GIF
 
-1. 打开 [ParaView](https://www.paraview.org/download/)（免费开源）
-2. `File → Open → animation.pvd`
-3. 点击播放按钮 ▶ 观察温度场的**时间演化动画**
-4. 可添加 `Warp By Scalar` 滤镜 → 将温度值映射为曲面高度 → 得到三维曲面图
-5. 可添加 `Contour` 滤镜 → 显示等温线
-6. `File → Save Animation` → 导出 `.avi` / `.mp4` 视频
+生成的 `heat_evolution.gif` 可用任何图片查看器或浏览器直接打开，观察温度场的**时间演化动画**。
 
-### 6.3 可视化管线
+### 6.3 GNUPlot 脚本说明
+
+程序自动生成并调用如下 GNUPlot 脚本：
+
+```gnuplot
+set terminal gif animate delay 10 size 800,600 enhanced
+set output 'results/heat_evolution.gif'
+
+set xlabel 'x'
+set ylabel 'y'
+set xrange [0:2]
+set yrange [0:2]
+set view map
+set pm3d map interpolate 0,0
+set palette defined (0 'blue', 1 'cyan', 2 'yellow', 3 'red')
+set cblabel 'u(x,y,t)'
+
+do for [i=0:N] {
+    filename = sprintf('results/step_%04d.dat', i)
+    set title sprintf('t = %.4f', t(i))
+    splot filename matrix with image
+}
+```
+
+> 如需调整色图、帧率、分辨率等参数，可修改 `results/plot_script.gp` 后执行 `gnuplot results/plot_script.gp` 重新生成。
+
+### 6.4 可视化管线
 
 ```mermaid
 graph LR
-    A[".vts 文件<br>(温度标量场)"] --> B["vtkXMLStructuredGridReader"]
-    B --> C["vtkWarpScalar<br>(温度 → Z 位移)"]
-    B --> D["vtkDataSetMapper<br>(2D 俯视色图)"]
-    C --> E["vtkPolyDataMapper<br>(3D 曲面)"]
-    D --> F["vtkRenderer"]
-    E --> F
-    F --> G["vtkRenderWindow<br>(交互式 3D 视图)"]
+    A["求解器 Uⁿ 矩阵"] --> B["reconstruct()<br>重构到规则网格"]
+    B --> C[".dat 文本数据文件<br>(空格分隔矩阵)"]
+    C --> D["gnuplot<br>pm3d map + image"]
+    D --> E["heat_evolution.gif<br>(动画 GIF)"]
 ```
 
 ---
