@@ -1,8 +1,9 @@
+# SPDX-FileCopyrightText: The Eigen Authors
+# SPDX-License-Identifier: MPL-2.0
+
 file(GLOB examples_SRCS "*.cpp")
 
 add_custom_target(unsupported_examples)
-
-include_directories(../../../unsupported ../../../unsupported/test)
 
 foreach(example_src ${examples_SRCS})
   get_filename_component(example ${example_src} NAME_WE)
@@ -10,6 +11,7 @@ foreach(example_src ${examples_SRCS})
   if(EIGEN_STANDARD_LIBRARIES_TO_LINK_TO)
     target_link_libraries(example_${example} ${EIGEN_STANDARD_LIBRARIES_TO_LINK_TO})
   endif()
+  target_link_libraries(example_${example}  Eigen3::Eigen)
   add_custom_command(
     TARGET example_${example}
     POST_BUILD

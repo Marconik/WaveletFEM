@@ -6,46 +6,20 @@
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
 // with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// SPDX-License-Identifier: MPL-2.0
 
 #ifndef EIGEN_ITERATIVE_SOLVERS_MODULE_H
 #define EIGEN_ITERATIVE_SOLVERS_MODULE_H
 
-#include "../../Eigen/Sparse"
-#include "../../Eigen/Jacobi"
-#include "../../Eigen/Householder"
-
-
-/**
-  * \defgroup IterativeLinearSolvers_Module Iterative solvers module
-  * This module aims to provide various iterative linear and non linear solver algorithms.
-  * It currently provides:
-  *  - a constrained conjugate gradient
-  *  - a Householder GMRES implementation
-  *  - an IDR(s) implementation
-  *  - a DGMRES implementation
-  *  - a MINRES implementation
-  *
-  * \code
-  * #include <unsupported/Eigen/IterativeSolvers>
-  * \endcode
-  */
-
-
-#include "../../Eigen/src/Core/util/DisableStupidWarnings.h"
-
-#ifndef EIGEN_MPL2_ONLY
-#include "src/IterativeSolvers/IterationController.h"
-#include "src/IterativeSolvers/ConstrainedConjGrad.h"
+// The contents of this module have been promoted to the supported
+// Eigen/IterativeLinearSolvers module. This header is retained as a thin
+// forwarding shim for backwards compatibility and may be removed in a future
+// release. Please include <Eigen/IterativeLinearSolvers> directly instead.
+#ifndef EIGEN_NO_DEPRECATED_WARNING
+#pragma message( \
+    "unsupported/Eigen/IterativeSolvers is deprecated and forwards to <Eigen/IterativeLinearSolvers>; please include that header directly. Define EIGEN_NO_DEPRECATED_WARNING to silence this message.")
 #endif
 
-#include "src/IterativeSolvers/IncompleteLU.h"
-#include "src/IterativeSolvers/GMRES.h"
-#include "src/IterativeSolvers/DGMRES.h"
-//#include "src/IterativeSolvers/SSORPreconditioner.h"
-#include "src/IterativeSolvers/MINRES.h"
-#include "src/IterativeSolvers/IDRS.h"
+#include "../../Eigen/IterativeLinearSolvers"
 
-#include "../../Eigen/src/Core/util/ReenableStupidWarnings.h"
-
-
-#endif // EIGEN_ITERATIVE_SOLVERS_MODULE_H
+#endif  // EIGEN_ITERATIVE_SOLVERS_MODULE_H

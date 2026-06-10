@@ -1,4 +1,7 @@
-MatrixXf A(MatrixXf::Random(5,3)), thinQ(MatrixXf::Identity(5,3)), Q;
+// SPDX-FileCopyrightText: The Eigen Authors
+// SPDX-License-Identifier: MPL-2.0
+
+MatrixXf A(MatrixXf::Random(5, 3)), thinQ(MatrixXf::Identity(5, 3)), Q;
 A.setRandom();
 HouseholderQR<MatrixXf> qr(A);
 Q = qr.householderQ();

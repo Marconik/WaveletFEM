@@ -6,12 +6,12 @@
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
 // with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// SPDX-License-Identifier: MPL-2.0
 
 #include "main.h"
 
-template<DenseIndex rows, DenseIndex cols>
-void resizeLikeTest()
-{
+template <DenseIndex rows, DenseIndex cols>
+void resizeLikeTest() {
   MatrixXf A(rows, cols);
   MatrixXf B;
   Matrix<double, rows, cols> C;
@@ -29,13 +29,12 @@ void resizeLikeTest()
   VERIFY(x.rows() == cols && x.cols() == 1);
 }
 
-void resizeLikeTest12() { resizeLikeTest<1,2>(); }
-void resizeLikeTest1020() { resizeLikeTest<10,20>(); }
-void resizeLikeTest31() { resizeLikeTest<3,1>(); }
+void resizeLikeTest12() { resizeLikeTest<1, 2>(); }
+void resizeLikeTest1020() { resizeLikeTest<10, 20>(); }
+void resizeLikeTest31() { resizeLikeTest<3, 1>(); }
 
-EIGEN_DECLARE_TEST(resize)
-{
-  CALL_SUBTEST(resizeLikeTest12() );
-  CALL_SUBTEST(resizeLikeTest1020() );
-  CALL_SUBTEST(resizeLikeTest31() );
+EIGEN_DECLARE_TEST(resize) {
+  CALL_SUBTEST(resizeLikeTest12());
+  CALL_SUBTEST(resizeLikeTest1020());
+  CALL_SUBTEST(resizeLikeTest31());
 }

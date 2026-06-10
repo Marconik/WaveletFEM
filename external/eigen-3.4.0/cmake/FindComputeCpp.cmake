@@ -16,6 +16,7 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 #########################
 #  FindComputeCpp.cmake
@@ -382,7 +383,7 @@ endfunction(__build_ir)
 #######################
 #
 #  Adds a SYCL compilation custom command associated with an existing
-#  target and sets a dependancy on that new command.
+#  target and sets a dependency on that new command.
 #
 #  TARGET : Name of the target to add SYCL to.
 #  SOURCES : Source files to be compiled for SYCL.

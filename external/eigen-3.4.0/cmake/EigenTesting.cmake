@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: The Eigen Authors
+# SPDX-License-Identifier: MPL-2.0
 
 macro(ei_add_property prop value)
   get_property(previous GLOBAL PROPERTY ${prop})
@@ -7,6 +9,12 @@ macro(ei_add_property prop value)
     set_property(GLOBAL PROPERTY ${prop} "${previous} ${value}")
   endif()
 endmacro()
+
+if(EIGEN_TEST_HIP AND NOT DEFINED EIGEN_HIP_ARCHITECTURES)
+  set(EIGEN_HIP_ARCHITECTURES
+      gfx900;gfx906;gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100;gfx1101;gfx1102;gfx1150;gfx1151
+      CACHE STRING "HIP GPU architectures to build Eigen's HIP tests for.")
+endif()
 
 #internal. See documentation of ei_add_test for details.
 macro(ei_add_test_internal testname testname_with_suffix)
@@ -23,67 +31,79 @@ macro(ei_add_test_internal testname testname_with_suffix)
   set(EIGEN_SUBTESTS_LIST "${EIGEN_SUBTESTS_LIST}${targetname}\n")
   set_property(GLOBAL PROPERTY EIGEN_SUBTESTS_LIST "${EIGEN_SUBTESTS_LIST}")
 
+  set(is_gpu_test OFF)
   if(EIGEN_ADD_TEST_FILENAME_EXTENSION STREQUAL cu)
+    set(is_gpu_test ON)
     if(EIGEN_TEST_HIP)
       hip_reset_flags()
-      hip_add_executable(${targetname} ${filename} HIPCC_OPTIONS "-DEIGEN_USE_HIP ${ARGV2}")
+      hip_add_executable(${targetname} ${filename} HIPCC_OPTIONS -std=c++14)
+      target_compile_definitions(${targetname} PRIVATE -DEIGEN_USE_HIP)
+      set_property(TARGET ${targetname} PROPERTY HIP_ARCHITECTURES "${EIGEN_HIP_ARCHITECTURES}")
     elseif(EIGEN_TEST_CUDA_CLANG)
       set_source_files_properties(${filename} PROPERTIES LANGUAGE CXX)
-      
+
       if(CUDA_64_BIT_DEVICE_CODE AND (EXISTS "${CUDA_TOOLKIT_ROOT_DIR}/lib64"))
         link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
       else()
         link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib")
       endif()
 
-      if (${ARGC} GREATER 2)
-        add_executable(${targetname} ${filename})
-      else()
-        add_executable(${targetname} ${filename} OPTIONS ${ARGV2})
-      endif()
+      add_executable(${targetname} ${filename})
       set(CUDA_CLANG_LINK_LIBRARIES "cudart_static" "cuda" "dl" "pthread")
       if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
       set(CUDA_CLANG_LINK_LIBRARIES ${CUDA_CLANG_LINK_LIBRARIES} "rt")
       endif()
       target_link_libraries(${targetname} ${CUDA_CLANG_LINK_LIBRARIES})
-    else()
-      if (${ARGC} GREATER 2)
-        cuda_add_executable(${targetname} ${filename} OPTIONS ${ARGV2})
+    elseif(EIGEN_TEST_CUDA_NVC)
+      set_source_files_properties(${filename} PROPERTIES LANGUAGE CXX)
+
+      if(CUDA_64_BIT_DEVICE_CODE AND (EXISTS "${CUDA_TOOLKIT_ROOT_DIR}/lib64"))
+        link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
       else()
-        cuda_add_executable(${targetname} ${filename})
+        link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib")
       endif()
+
+      add_executable(${targetname} ${filename})
+      set(CUDA_NVC_LINK_LIBRARIES "cudart_static" "cuda" "dl" "pthread")
+      if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        list(APPEND CUDA_NVC_LINK_LIBRARIES "rt")
+      endif()
+      target_link_libraries(${targetname} ${CUDA_NVC_LINK_LIBRARIES})
+    else()
+      cuda_add_executable(${targetname} ${filename})
     endif()
   else()
     add_executable(${targetname} ${filename})
   endif()
 
-  if (targetname MATCHES "^eigen2_")
-    add_dependencies(eigen2_buildtests ${targetname})
-  else()
-    add_dependencies(buildtests ${targetname})
+  add_dependencies(buildtests ${targetname})
+
+  if (is_gpu_test)
+    add_dependencies(buildtests_gpu ${targetname})
   endif()
 
   if(EIGEN_NO_ASSERTION_CHECKING)
-    ei_add_target_property(${targetname} COMPILE_FLAGS "-DEIGEN_NO_ASSERTION_CHECKING=1")
+    target_compile_definitions(${targetname} PRIVATE EIGEN_NO_ASSERTION_CHECKING=1)
   else()
     if(EIGEN_DEBUG_ASSERTS)
-      ei_add_target_property(${targetname} COMPILE_FLAGS "-DEIGEN_DEBUG_ASSERTS=1")
+      target_compile_definitions(${targetname} PRIVATE EIGEN_DEBUG_ASSERTS=1)
     endif()
   endif()
 
-  ei_add_target_property(${targetname} COMPILE_FLAGS "-DEIGEN_TEST_MAX_SIZE=${EIGEN_TEST_MAX_SIZE}")
+  target_compile_definitions(${targetname} PRIVATE EIGEN_TEST_MAX_SIZE=${EIGEN_TEST_MAX_SIZE})
 
   if(MSVC)
-    ei_add_target_property(${targetname} COMPILE_FLAGS "/bigobj")
+    target_compile_options(${targetname} PRIVATE "/bigobj")
   endif()
 
   # let the user pass flags.
   if(${ARGC} GREATER 2)
-    ei_add_target_property(${targetname} COMPILE_FLAGS "${ARGV2}")
+    separate_arguments(compile_options NATIVE_COMMAND "${ARGV2}")
+    target_compile_options(${targetname} PRIVATE ${compile_options})
   endif()
 
   if(EIGEN_TEST_CUSTOM_CXX_FLAGS)
-    ei_add_target_property(${targetname} COMPILE_FLAGS "${EIGEN_TEST_CUSTOM_CXX_FLAGS}")
+    target_compile_options(${targetname} PRIVATE ${EIGEN_TEST_CUSTOM_CXX_FLAGS})
   endif()
 
   if(EIGEN_STANDARD_LIBRARIES_TO_LINK_TO)
@@ -95,6 +115,7 @@ macro(ei_add_test_internal testname testname_with_suffix)
   if(EIGEN_TEST_CUSTOM_LINKER_FLAGS)
     target_link_libraries(${targetname} ${EIGEN_TEST_CUSTOM_LINKER_FLAGS})
   endif()
+  target_link_libraries(${targetname} Eigen3::Eigen)
 
   if(${ARGC} GREATER 3)
     set(libs_to_link ${ARGV3})
@@ -109,7 +130,7 @@ macro(ei_add_test_internal testname testname_with_suffix)
     endif()
   endif()
 
-  add_test(${testname_with_suffix} "${targetname}")
+  add_test(NAME ${testname_with_suffix} COMMAND "${targetname}")
 
   # Specify target and test labels according to EIGEN_CURRENT_SUBPROJECT
   get_property(current_subproject GLOBAL PROPERTY EIGEN_CURRENT_SUBPROJECT)
@@ -118,27 +139,29 @@ macro(ei_add_test_internal testname testname_with_suffix)
     add_dependencies("Build${current_subproject}" ${targetname})
     set_property(TEST ${testname_with_suffix} PROPERTY LABELS "${current_subproject}")
   endif()
+  if (is_gpu_test)
+    # Add gpu tag for testing only GPU tests.
+    set_property(TEST ${testname_with_suffix} APPEND PROPERTY LABELS "gpu")
+    set_property(TEST ${testname_with_suffix} PROPERTY SKIP_RETURN_CODE 77)
+  endif()
+
   if(EIGEN_SYCL)
     # Force include of the SYCL file at the end to avoid errors.
     set_property(TARGET ${targetname} PROPERTY COMPUTECPP_INCLUDE_AFTER 1)
-    # Set COMPILE_FLAGS to COMPILE_DEFINITIONS instead to avoid having to duplicate the flags
-    # to the device compiler.
-    get_target_property(target_compile_flags ${targetname} COMPILE_FLAGS)
-    separate_arguments(target_compile_flags)
-    foreach(flag ${target_compile_flags})
-      if(${flag} MATCHES "^-D.*")
-        string(REPLACE "-D" "" definition_flag ${flag})
-        set_property(TARGET ${targetname} APPEND PROPERTY COMPILE_DEFINITIONS ${definition_flag})
-        list(REMOVE_ITEM target_compile_flags ${flag})
-      endif()
-    endforeach()
-    set_property(TARGET ${targetname} PROPERTY COMPILE_FLAGS ${target_compile_flags})
     # Link against pthread and add sycl to target
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
     target_link_libraries(${targetname} Threads::Threads)
     add_sycl_to_target(TARGET ${targetname} SOURCES ${filename})
   endif(EIGEN_SYCL)
+
+  # Match on the parent test name (e.g. "packetmath" → all packetmath_N) or
+  # the specific subtest name (e.g. "packetmath_2"); see EigenConfigureTesting.cmake
+  # for why this lives here instead of in a post-hoc registration.
+  if ("${testname_with_suffix}" IN_LIST ei_smoke_test_list OR "${testname}" IN_LIST ei_smoke_test_list)
+    set_property(TEST ${testname_with_suffix} APPEND PROPERTY LABELS "smoketest")
+    add_dependencies(buildsmoketests ${targetname})
+  endif()
 endmacro(ei_add_test_internal)
 # Macro to add a test
 #
@@ -209,12 +232,13 @@ macro(ei_add_test testname)
   if( (EIGEN_SPLIT_LARGE_TESTS AND suffixes) OR explicit_suffixes)
     add_custom_target(${testname})
     foreach(suffix ${suffixes})
-      ei_add_test_internal(${testname} ${testname}_${suffix}
-        "${ARGV1} -DEIGEN_TEST_PART_${suffix}=1" "${ARGV2}")
+      ei_add_test_internal(${testname} ${testname}_${suffix} "${ARGV1}" "${ARGV2}")
       add_dependencies(${testname} ${testname}_${suffix})
+      target_compile_definitions(${testname}_${suffix} PRIVATE -DEIGEN_TEST_PART_${suffix}=1)
     endforeach()
   else()
-    ei_add_test_internal(${testname} ${testname} "${ARGV1} -DEIGEN_TEST_PART_ALL=1" "${ARGV2}")
+    ei_add_test_internal(${testname} ${testname} "${ARGV1}" "${ARGV2}")
+    target_compile_definitions(${testname} PRIVATE -DEIGEN_TEST_PART_ALL=1)
   endif()
 endmacro()
 
@@ -240,11 +264,16 @@ macro(ei_add_failtest testname)
 
   # Add the tests to ctest.
   add_test(NAME ${test_target_ok}
-          COMMAND ${CMAKE_COMMAND} --build . --target ${test_target_ok} --config $<CONFIGURATION>
+          COMMAND ${CMAKE_COMMAND} --build . --target ${test_target_ok} --config $<CONFIG>
           WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
   add_test(NAME ${test_target_ko}
-          COMMAND ${CMAKE_COMMAND} --build . --target ${test_target_ko} --config $<CONFIGURATION>
+          COMMAND ${CMAKE_COMMAND} --build . --target ${test_target_ko} --config $<CONFIG>
           WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+  # Disable emulator if cross-compiling.
+  if (CMAKE_CROSSCOMPILING)
+    set_property(TEST ${test_target_ok} PROPERTY CROSSCOMPILING_EMULATOR "")
+    set_property(TEST ${test_target_ko} PROPERTY CROSSCOMPILING_EMULATOR "")
+  endif()
 
   # Expect the second test to fail
   set_tests_properties(${test_target_ko} PROPERTIES WILL_FAIL TRUE)
@@ -375,17 +404,19 @@ macro(ei_testing_print_summary)
       message(STATUS "S390X ZVECTOR:     Using architecture defaults")
     endif()
 
-    if(EIGEN_TEST_CXX11)
-      message(STATUS "C++11:             ON")
+    if(EIGEN_TEST_LSX)
+        message(STATUS "LSX:               ON")
     else()
-      message(STATUS "C++11:             OFF")
+        message(STATUS "LSX:               Using architecture defaults")
     endif()
 
     if(EIGEN_TEST_SYCL)
       if(EIGEN_SYCL_TRISYCL)
         message(STATUS "SYCL:              ON (using triSYCL)")
-      else()
+      elseif(EIGEN_SYCL_ComputeCpp)
         message(STATUS "SYCL:              ON (using computeCPP)")
+      elseif(EIGEN_SYCL_DPCPP)
+        message(STATUS "SYCL:              ON (using DPCPP)")
       endif()
     else()
       message(STATUS "SYCL:              OFF")
@@ -454,17 +485,12 @@ macro(ei_set_sitename)
 endmacro()
 
 macro(ei_get_compilerver VAR)
+    if (NOT CMAKE_CXX_COMPILER_ID)
+      set(CMAKE_CXX_COMPILER_ID "<unknown>")
+    endif()
     if(MSVC)
-      # on windows system, we use a modified CMake script
-      include(EigenDetermineVSServicePack)
-      EigenDetermineVSServicePack( my_service_pack )
-
-      if( my_service_pack )
-        set(${VAR} ${my_service_pack})
-      else()
-        set(${VAR} "na")
-      endif()
-    elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "PGI")
+      set(${VAR} "${CMAKE_CXX_COMPILER_VERSION}")
+    elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "PGI" OR ${CMAKE_CXX_COMPILER_ID} MATCHES "NVHPC")
       set(${VAR} "${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}")
     else()
     # on all other system we rely on ${CMAKE_CXX_COMPILER}
@@ -532,12 +558,12 @@ macro(ei_get_compilerver_from_cxx_version_string VERSTRING CNAME CVER)
         string(REGEX MATCH "[^0-9][0-9]+\\.[0-9]+" eicver ${VERSTRING})
         if (NOT eicver AND ei_has_mingw)
           # try to extract 1 number plus suffix:
-          string(REGEX MATCH "[^0-9][0-9]+-win32" eicver ${VERSTRING})          
+          string(REGEX MATCH "[^0-9][0-9]+-win32" eicver ${VERSTRING})
         endif()
       endif()
     endif()
   endif()
-  
+
   if (NOT eicver)
     set(eicver " _")
   endif()
@@ -598,10 +624,7 @@ macro(ei_set_build_string)
   ei_get_compilerver(LOCAL_COMPILER_VERSION)
   ei_get_cxxflags(LOCAL_COMPILER_FLAGS)
 
-  include(EigenDetermineOSVersion)
-  DetermineOSVersion(OS_VERSION)
-
-  set(TMP_BUILD_STRING ${OS_VERSION}-${LOCAL_COMPILER_VERSION})
+  set(TMP_BUILD_STRING ${CMAKE_SYSTEM}-${LOCAL_COMPILER_VERSION})
 
   if (NOT ${LOCAL_COMPILER_FLAGS} STREQUAL  "")
     set(TMP_BUILD_STRING ${TMP_BUILD_STRING}-${LOCAL_COMPILER_FLAGS})
@@ -616,10 +639,6 @@ macro(ei_set_build_string)
     set(TMP_BUILD_STRING ${TMP_BUILD_STRING}-32bit)
   else()
     set(TMP_BUILD_STRING ${TMP_BUILD_STRING}-64bit)
-  endif()
-
-  if(EIGEN_TEST_CXX11)
-    set(TMP_BUILD_STRING ${TMP_BUILD_STRING}-cxx11)
   endif()
 
   if(EIGEN_BUILD_STRING_SUFFIX)
@@ -671,10 +690,10 @@ endmacro()
 # Split all tests listed in EIGEN_TESTS_LIST into num_splits many targets
 # named buildtestspartN with N = { 0, ..., num_splits-1}.
 #
-# The intention behind the existance of this macro is the size of Eigen's
-# testsuite. Together with the relativly big compile-times building all tests
+# The intention behind the existence of this macro is the size of Eigen's
+# testsuite. Together with the relatively big compile-times building all tests
 # can take a substantial amount of time depending on the available hardware.
-# 
+#
 # The last buildtestspartN target will build possible remaining tests.
 #
 # An example:
@@ -718,7 +737,7 @@ macro(ei_split_testsuite num_splits)
     endforeach()
     math(EXPR test_idx "${test_idx} + ${num_tests_per_target}")
   endforeach()
-  
+
   # Handle the possibly remaining tests
   math(EXPR test_idx "${num_splits} * ${num_tests_per_target}")
   math(EXPR target_bound "${eigen_test_count} - 1")
@@ -727,56 +746,3 @@ macro(ei_split_testsuite num_splits)
     add_dependencies("${current_target}" "${curr_test}")
   endforeach()
 endmacro(ei_split_testsuite num_splits)
-
-# Defines the custom command buildsmoketests to build a number of tests
-# specified in smoke_test_list.
-# 
-# Test in smoke_test_list can be either test targets (e.g. packetmath) or
-# subtests targets (e.g. packetmath_2). If any of the test are not available
-# in the current configuration they are just skipped. 
-#
-# All tests added via this macro are labeled with the smoketest label. This
-# allows running smoketests only using ctest.
-#
-# Smoke tests are intended to be run before the whole test suite is invoked,
-# e.g., to smoke test patches.
-macro(ei_add_smoke_tests smoke_test_list)
-  # Set the build target to build smoketests
-  set(buildtarget "buildsmoketests")
-  add_custom_target("${buildtarget}")
-
-  # Get list of all tests and translate it into a CMake list
-  get_property(EIGEN_TESTS_LIST GLOBAL PROPERTY EIGEN_TESTS_LIST)
-  string(REGEX REPLACE "\n" " " EIGEN_TESTS_LIST "${EIGEN_TESTS_LIST}")
-  set(EIGEN_TESTS_LIST "${EIGEN_TESTS_LIST}")
-  separate_arguments(EIGEN_TESTS_LIST)
-
-  # Check if the test in smoke_test_list is a currently valid test target
-  foreach(test IN ITEMS ${smoke_test_list})
-    # Add tests in smoke_test_list to our smoke test target but only if the test
-    # is currently available, i.e., is in EIGEN_SUBTESTS_LIST
-    if ("${test}" IN_LIST EIGEN_TESTS_LIST)
-      add_dependencies("${buildtarget}" "${test}")
-      # In the case of a test we match all subtests
-      set(ctest_regex "${ctest_regex}^${test}_[0-9]+$$|")
-    endif()
-  endforeach()
-
-  # Get list of all subtests and translate it into a CMake list
-  get_property(EIGEN_SUBTESTS_LIST GLOBAL PROPERTY EIGEN_SUBTESTS_LIST)
-  string(REGEX REPLACE "\n" " " EIGEN_SUBTESTS_LIST "${EIGEN_SUBTESTS_LIST}")
-  set(EIGEN_SUBTESTS_LIST "${EIGEN_SUBTESTS_LIST}")
-  separate_arguments(EIGEN_SUBTESTS_LIST)
-
-  # Check if the test in smoke_test_list is a currently valid subtest target
-  foreach(test IN ITEMS ${smoke_test_list})
-    # Add tests in smoke_test_list to our smoke test target but only if the test
-    # is currently available, i.e., is in EIGEN_SUBTESTS_LIST
-    if ("${test}" IN_LIST EIGEN_SUBTESTS_LIST)
-      add_dependencies("${buildtarget}" "${test}")
-      # Add label smoketest to be able to run smoketests using ctest
-      get_property(test_labels TEST ${test} PROPERTY LABELS)
-      set_property(TEST ${test} PROPERTY LABELS "${test_labels};smoketest")
-    endif()
-  endforeach()
-endmacro(ei_add_smoke_tests)

@@ -367,7 +367,8 @@ vec2 = vec1.normalized();     vec1.normalize(); // inplace \endcode
 <tr class="alt"><td>
 \link MatrixBase::cross() cross product \endlink \matrixworld</td><td>\code
 #include <Eigen/Geometry>
-vec3 = vec1.cross(vec2);\endcode</td></tr>
+v3c = v3a.cross(v3b);    // size-3 vectors
+scalar = v2a.cross(v2b); // size-2 vectors \endcode</td></tr>
 </table>
 
 <a href="#" class="top">top</a>
@@ -448,7 +449,7 @@ conj(array1)
 </td></tr>
 </table>
 
-Some coefficient-wise operators are readily available for for matrices and vectors through the following cwise* methods:
+Some coefficient-wise operators are readily available for matrices and vectors through the following cwise* methods:
 <table class="manual">
 <tr><th>Matrix API \matrixworld</th><th>Via Array conversions</th></tr>
 <tr><td>\code
@@ -457,6 +458,7 @@ mat1.cwiseMax(mat2)         mat1.cwiseMax(scalar)
 mat1.cwiseAbs2()
 mat1.cwiseAbs()
 mat1.cwiseSqrt()
+mat1.cwiseCbrt()
 mat1.cwiseInverse()
 mat1.cwiseProduct(mat2)
 mat1.cwiseQuotient(mat2)
@@ -469,6 +471,7 @@ mat1.array().max(mat2.array())    mat1.array().max(scalar)
 mat1.array().abs2()
 mat1.array().abs()
 mat1.array().sqrt()
+mat1.array().cbrt()
 mat1.array().inverse()
 mat1.array() * mat2.array()
 mat1.array() / mat2.array()
@@ -480,9 +483,8 @@ The main difference between the two API is that the one based on cwise* methods 
 while the second one (based on .array()) returns an array expression.
 Recall that .array() has no cost, it only changes the available API and interpretation of the data.
 
-It is also very simple to apply any user defined function \c foo using DenseBase::unaryExpr together with <a href="http://en.cppreference.com/w/cpp/utility/functional/ptr_fun">std::ptr_fun</a> (c++03, deprecated or removed in newer C++ versions), <a href="http://en.cppreference.com/w/cpp/utility/functional/ref">std::ref</a> (c++11), or <a href="http://en.cppreference.com/w/cpp/language/lambda">lambdas</a> (c++11):
+It is also very simple to apply any user defined function \c foo using DenseBase::unaryExpr together with <a href="http://en.cppreference.com/w/cpp/utility/functional/ref">std::ref</a> or <a href="http://en.cppreference.com/w/cpp/language/lambda">lambdas</a>:
 \code
-mat1.unaryExpr(std::ptr_fun(foo));
 mat1.unaryExpr(std::ref(foo));
 mat1.unaryExpr([](double x) { return foo(x); });
 \endcode
@@ -548,7 +550,6 @@ Read-write access to sub-vectors:
 <tr>
 <th>Default versions</th>
 <th>Optimized versions when the size \n is known at compile time</th></tr>
-<th></th>
 
 <tr><td>\code vec1.head(n)\endcode</td><td>\code vec1.head<n>()\endcode</td><td>the first \c n coeffs </td></tr>
 <tr><td>\code vec1.tail(n)\endcode</td><td>\code vec1.tail<n>()\endcode</td><td>the last \c n coeffs </td></tr>

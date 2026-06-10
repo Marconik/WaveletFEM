@@ -1,4 +1,7 @@
-set(Eigen_HEADERS 
+# SPDX-FileCopyrightText: The Eigen Authors
+# SPDX-License-Identifier: MPL-2.0
+
+set(Eigen_HEADERS
   AdolcForward
   AlignedVector3
   ArpackSupport
@@ -6,20 +9,23 @@ set(Eigen_HEADERS
   BVH
   EulerAngles
   FFT
-  IterativeSolvers 
+  GPU
+  IterativeSolvers
   KroneckerProduct
   LevenbergMarquardt
-  MatrixFunctions 
-  MoreVectorization
+  MatrixFunctions
   MPRealSupport
+  NNLS
   NonLinearOptimization
   NumericalDiff
   OpenGLSupport
   Polynomials
-  Skyline 
   SparseExtra
   SpecialFunctions
   Splines
+  Tensor
+  TensorSymmetry
+  ThreadPool
   )
 
 install(FILES

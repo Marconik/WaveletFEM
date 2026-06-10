@@ -1,6 +1,8 @@
 # List of tests that will be build and run during Eigen's smoke testing. If one
 # of these tests doesn't exists or cannot be build with the current configuration
 # it will just be skipped.
+# SPDX-FileCopyrightText: The Eigen Authors
+# SPDX-License-Identifier: MPL-2.0
 set(ei_smoke_test_list
   adjoint_1
   alignedvector3
@@ -25,7 +27,8 @@ set(ei_smoke_test_list
   conservative_resize_1
   constructor_1
   corners_1
-  ctorleakmiscmatrices_4
+  ctorleak
+  miscmatrices_4
   dense_storage
   determinant_1
   diagonal_1
@@ -47,7 +50,8 @@ set(ei_smoke_test_list
   geo_transformations_7
   half_float
   hessenberg_1
-  hessenberg_6qr_10
+  hessenberg_6
+  qr_10
   householder_8
   indexed_view_1
   inplace_decomposition_1
@@ -61,6 +65,9 @@ set(ei_smoke_test_list
   mapped_matrix_1
   mapstaticmethods_1
   mapstride_1
+  unaryview_1
+  unaryview_2
+  unaryview_3
   matrix_square_root_1
   meta
   minres_2
@@ -88,7 +95,7 @@ set(ei_smoke_test_list
   qr_1
   qr_colpivoting_7
   qr_fullpivoting_4
-  rand
+  rand_1
   real_qz_1
   redux_1
   ref_1
@@ -100,6 +107,7 @@ set(ei_smoke_test_list
   sizeof
   sizeoverflow
   smallvectors
+  sparse_basic_1
   sparse_basic_3
   sparse_block_1
   sparse_extra_4
@@ -123,9 +131,10 @@ set(ei_smoke_test_list
   swap_1
   symbolic_index_1
   triangular_1
-  type_aliaslu_9
+  type_alias
+  lu_9
   umeyama_3
-  unalignedassert
   unalignedcount
   vectorwiseop_1
-  visitor_1)
+  visitor_1
+  vectorization_logic_1)

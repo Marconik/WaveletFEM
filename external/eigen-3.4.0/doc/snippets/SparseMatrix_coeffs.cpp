@@ -1,7 +1,10 @@
-SparseMatrix<double> A(3,3);
-A.insert(1,2) = 0;
-A.insert(0,1) = 1;
-A.insert(2,0) = 2;
+// SPDX-FileCopyrightText: The Eigen Authors
+// SPDX-License-Identifier: MPL-2.0
+
+SparseMatrix<double> A(3, 3);
+A.insert(1, 2) = 0;
+A.insert(0, 1) = 1;
+A.insert(2, 0) = 2;
 A.makeCompressed();
 cout << "The matrix A is:" << endl << MatrixXd(A) << endl;
 cout << "it has " << A.nonZeros() << " stored non zero coefficients that are: " << A.coeffs().transpose() << endl;

@@ -1,4 +1,7 @@
-MatrixXcf A = MatrixXcf::Random(4,4);
+// SPDX-FileCopyrightText: The Eigen Authors
+// SPDX-License-Identifier: MPL-2.0
+
+MatrixXcf A = MatrixXcf::Random(4, 4);
 ComplexSchur<MatrixXcf> schur(4);
 schur.compute(A);
 cout << "The matrix T in the decomposition of A is:" << endl << schur.matrixT() << endl;

@@ -6,6 +6,7 @@
 // This Source Code Form is subject to the terms of the Mozilla
 // Public License v. 2.0. If a copy of the MPL was not distributed
 // with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// SPDX-License-Identifier: MPL-2.0
 
 #include "main.h"
 #include <unsupported/Eigen/AutoDiff>
@@ -15,36 +16,36 @@
  * TODO add more tests!
  */
 
-template<typename Scalar> void check_atan2()
-{
+template <typename Scalar>
+void check_atan2() {
   typedef Matrix<Scalar, 1, 1> Deriv1;
   typedef AutoDiffScalar<Deriv1> AD;
-  
+
   AD x(internal::random<Scalar>(-3.0, 3.0), Deriv1::UnitX());
-  
+
   using std::exp;
   Scalar r = exp(internal::random<Scalar>(-10, 10));
-  
+
   AD s = sin(x), c = cos(x);
-  AD res = atan2(r*s, r*c);
-  
+  AD res = atan2(r * s, r * c);
+
   VERIFY_IS_APPROX(res.value(), x.value());
   VERIFY_IS_APPROX(res.derivatives(), x.derivatives());
 
-  res = atan2(r*s+0, r*c+0);
+  res = atan2(r * s + 0, r * c + 0);
   VERIFY_IS_APPROX(res.value(), x.value());
   VERIFY_IS_APPROX(res.derivatives(), x.derivatives());
 }
 
-template<typename Scalar> void check_hyperbolic_functions()
-{
-  using std::sinh;
+template <typename Scalar>
+void check_hyperbolic_functions() {
   using std::cosh;
+  using std::sinh;
   using std::tanh;
   typedef Matrix<Scalar, 1, 1> Deriv1;
   typedef AutoDiffScalar<Deriv1> AD;
   Deriv1 p = Deriv1::Random();
-  AD val(p.x(),Deriv1::UnitX());
+  AD val(p.x(), Deriv1::UnitX());
 
   Scalar cosh_px = std::cosh(p.x());
   AD res1 = tanh(val);
@@ -60,8 +61,8 @@ template<typename Scalar> void check_hyperbolic_functions()
   VERIFY_IS_APPROX(res3.derivatives().x(), std::sinh(p.x()));
 
   // Check constant values.
-  const Scalar sample_point = Scalar(1) / Scalar(3); 
-  val = AD(sample_point,Deriv1::UnitX());
+  const Scalar sample_point = Scalar(1) / Scalar(3);
+  val = AD(sample_point, Deriv1::UnitX());
   res1 = tanh(val);
   VERIFY_IS_APPROX(res1.derivatives().x(), Scalar(0.896629559604914));
 
@@ -73,8 +74,7 @@ template<typename Scalar> void check_hyperbolic_functions()
 }
 
 template <typename Scalar>
-void check_limits_specialization()
-{
+void check_limits_specialization() {
   typedef Eigen::Matrix<Scalar, 1, 1> Deriv;
   typedef Eigen::AutoDiffScalar<Deriv> AD;
 
@@ -82,20 +82,39 @@ void check_limits_specialization()
   typedef std::numeric_limits<Scalar> B;
 
   // workaround "unused typedef" warning:
-  VERIFY(!bool(internal::is_same<B, A>::value));
+  VERIFY(!bool(std::is_same<B, A>::value));
 
-#if EIGEN_HAS_CXX11
   VERIFY(bool(std::is_base_of<B, A>::value));
-#endif
 }
 
-EIGEN_DECLARE_TEST(autodiff_scalar)
-{
-  for(int i = 0; i < g_repeat; i++) {
-    CALL_SUBTEST_1( check_atan2<float>() );
-    CALL_SUBTEST_2( check_atan2<double>() );
-    CALL_SUBTEST_3( check_hyperbolic_functions<float>() );
-    CALL_SUBTEST_4( check_hyperbolic_functions<double>() );
-    CALL_SUBTEST_5( check_limits_specialization<double>());
+// Regression for issue #1870: min(ADS, ADS) and max(ADS, ADS) must agree on
+// which argument wins on a tie.  Previously min returned the second argument
+// while max returned the first, so the two could yield different derivatives
+// for inputs with equal values but different derivative vectors.
+template <typename Scalar>
+void check_min_max_equal_values() {
+  typedef Eigen::Matrix<Scalar, 2, 1> Deriv2;
+  typedef Eigen::AutoDiffScalar<Deriv2> AD;
+
+  AD a(Scalar(1), Deriv2(Scalar(1), Scalar(0)));
+  AD b(Scalar(1), Deriv2(Scalar(0), Scalar(1)));
+
+  // Parenthesized form avoids the min/max macros installed by test/main.h
+  // and lets ADL pick up the AutoDiffScalar overloads.
+  VERIFY_IS_EQUAL((min)(a, b).derivatives(), a.derivatives());
+  VERIFY_IS_EQUAL((max)(a, b).derivatives(), a.derivatives());
+  VERIFY_IS_EQUAL((min)(b, a).derivatives(), b.derivatives());
+  VERIFY_IS_EQUAL((max)(b, a).derivatives(), b.derivatives());
+}
+
+EIGEN_DECLARE_TEST(autodiff_scalar) {
+  for (int i = 0; i < g_repeat; i++) {
+    CALL_SUBTEST_1(check_atan2<float>());
+    CALL_SUBTEST_2(check_atan2<double>());
+    CALL_SUBTEST_3(check_hyperbolic_functions<float>());
+    CALL_SUBTEST_4(check_hyperbolic_functions<double>());
+    CALL_SUBTEST_5(check_limits_specialization<double>());
+    CALL_SUBTEST_6(check_min_max_equal_values<float>());
+    CALL_SUBTEST_7(check_min_max_equal_values<double>());
   }
 }

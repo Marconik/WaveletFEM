@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: The Eigen Authors
+# SPDX-License-Identifier: MPL-2.0
 
 ei_add_failtest("failtest_sanity_check")
 
@@ -36,6 +38,8 @@ ei_add_failtest("ref_2")
 ei_add_failtest("ref_3")
 ei_add_failtest("ref_4")
 ei_add_failtest("ref_5")
+ei_add_failtest("ref_6")
+ei_add_failtest("ref_7")
 
 ei_add_failtest("swap_1")
 ei_add_failtest("swap_2")
@@ -62,9 +66,22 @@ ei_add_failtest("jacobisvd_int")
 ei_add_failtest("bdcsvd_int")
 ei_add_failtest("eigensolver_int")
 ei_add_failtest("eigensolver_cplx")
+ei_add_failtest("initializer_list_1")
+ei_add_failtest("initializer_list_2")
 
-if(EIGEN_TEST_CXX11)
-  ei_add_failtest("initializer_list_1")
-  ei_add_failtest("initializer_list_2")
-endif()
+ei_add_failtest("structured_bindings_dynamic_matrix")
+ei_add_failtest("structured_bindings_dynamic_array")
+ei_add_failtest("structured_bindings_rowmajor")
 
+# Structured bindings require C++17 — the header is a no-op otherwise and the
+# "_ok" targets would not compile. Force the standard on these four targets
+# (two per failtest: the _ok and _ko variants).
+foreach(_sb_target
+    structured_bindings_dynamic_matrix_ok structured_bindings_dynamic_matrix_ko
+    structured_bindings_dynamic_array_ok  structured_bindings_dynamic_array_ko
+    structured_bindings_rowmajor_ok       structured_bindings_rowmajor_ko)
+  set_target_properties(${_sb_target} PROPERTIES
+                        CXX_STANDARD 17
+                        CXX_STANDARD_REQUIRED ON
+                        CXX_EXTENSIONS OFF)
+endforeach()

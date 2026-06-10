@@ -25,7 +25,7 @@ Assertions cost run time and can be turned off. You can suppress eigen_assert by
 
 \section StaticAssert Static assertions
 
-Static assertions are not standardized until C++11. However, in the Eigen library, there are many conditions can and should be detectedat compile time. For instance, we use static assertions to prevent the code below from compiling.
+In the Eigen library, there are many conditions that can and should be detected at compile time. For instance, we use static assertions to prevent the code below from compiling.
 
 \code
 Matrix3d()  + Matrix4d();   // adding matrices of different sizes
@@ -70,9 +70,9 @@ There are other macros derived from EIGEN_STATIC_ASSERT to enhance readability. 
 
 - \b EIGEN_STATIC_ASSERT_FIXED_SIZE(TYPE) - passes if \a TYPE is fixed size.
 - \b EIGEN_STATIC_ASSERT_DYNAMIC_SIZE(TYPE) - passes if \a TYPE is dynamic size.
-- \b EIGEN_STATIC_ASSERT_LVALUE(Derived) - failes if \a Derived is read-only.
+- \b EIGEN_STATIC_ASSERT_LVALUE(Derived) - fails if \a Derived is read-only.
 - \b EIGEN_STATIC_ASSERT_ARRAYXPR(Derived) - passes if \a Derived is an array expression.
-- <b>EIGEN_STATIC_ASSERT_SAME_XPR_KIND(Derived1, Derived2)</b> - failes if the two expressions are an array one and a matrix one.
+- <b>EIGEN_STATIC_ASSERT_SAME_XPR_KIND(Derived1, Derived2)</b> - fails if the two expressions are an array one and a matrix one.
 
 Because Eigen handles both fixed-size and dynamic-size expressions, some conditions cannot be clearly determined at compile time. We classify them into strict assertions and permissive assertions.
 

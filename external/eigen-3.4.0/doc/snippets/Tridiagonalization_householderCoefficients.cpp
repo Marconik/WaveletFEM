@@ -1,4 +1,7 @@
-Matrix4d X = Matrix4d::Random(4,4);
+// SPDX-FileCopyrightText: The Eigen Authors
+// SPDX-License-Identifier: MPL-2.0
+
+Matrix4d X = Matrix4d::Random(4, 4);
 Matrix4d A = X + X.transpose();
 cout << "Here is a random symmetric 4x4 matrix:" << endl << A << endl;
 Tridiagonalization<Matrix4d> triOfA(A);
