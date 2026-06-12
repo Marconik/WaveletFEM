@@ -8,6 +8,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # ---- 编译选项 ----
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     add_compile_options(-Wall -Wextra -O3 -march=native)
+elseif(MSVC)
+    add_compile_options(/W4 /permissive- /utf-8)
+    add_definitions(-D_USE_MATH_DEFINES)
+    # 仅在 Release 模式下启用优化，避免与 Debug 模式的 /RTC1 冲突
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2")
 endif()
 
 # ---- Eigen ----

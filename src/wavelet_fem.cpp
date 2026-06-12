@@ -87,42 +87,49 @@ void WaveletFEMSolver::assemble_1d_matrices() {
 
     double L = config_.bx - config_.ax;  // 区间长度 = 2
     int pow2_j = 1 << config_.j;          // 2^j
+    double ymax = pow2_j * L;             // 缩放后 y 区间右端 = 2^{j+1}
+    int support_len = 2 * config_.N - 1;  // φ 支撑整数长度
+    int Dmax = 2 * config_.N - 2;         // |k-l| 的最大值
+    double scale = std::pow(2.0, 2 * config_.j);
+
+    // LRT 精确二阶连接系数 Γ_d = ∫ φ'(x)φ'(x-d) dx,  d ∈ [-Dmax, Dmax]
+    // 内部刚度： ∫ φ''(y-k)φ(y-l) dy = -Γ_{k-l}（分部积分），再乘 2^{2j}
+    std::vector<double> Gamma = connection_coeff_d1d1(config_.N);
 
     for (int l_idx = 0; l_idx < n_; ++l_idx) {
-        int l = k_min_ + l_idx;  // 基函数指标
+        int l = k_min_ + l_idx;
         for (int k_idx = 0; k_idx < n_; ++k_idx) {
             int k = k_min_ + k_idx;
             int d = k - l;
 
-            // 质量矩阵: ā_{l,k} = ∫_0^L φ_{j,k}(x) φ_{j,l}(x) dx
-            // φ_{j,k}(x) = 2^{j/2} φ(2^j x - k)
-            // 设 y = 2^j x, dy = 2^j dx
-            // = 2^j ∫ φ(y-k) φ(y-l) * 2^{-j} dy
-            // = ∫ φ(y-k) φ(y-l) dy  (over y ∈ [0, 2^{j+1}])
-            // = C_{k-l}^0(2^{j+1} - l) - C_{k-l}^0(-l)
-            double upper = pow2_j * L - l;  // 2^{j+1} - l
-            double lower = -l;
+            // 支撑不重叠 → 元素为 0
+            if (std::abs(d) > Dmax) {
+                A_(l_idx, k_idx) = 0.0;
+                C_(l_idx, k_idx) = 0.0;
+                continue;
+            }
 
-            A_(l_idx, k_idx) = conn_->eval_C(d, 0, upper)
-                             - conn_->eval_C(d, 0, lower);
+            // 判断两个基函数的重叠区是否完全落在区间 [0, ymax] 内
+            //   φ(y-k) 支撑 [k, k+support_len]，φ(y-l) 支撑 [l, l+support_len]
+            //   重叠区 = [max(k,l), min(k,l)+support_len]
+            int hi = std::max(k, l);
+            int lo = std::min(k, l);
+            bool interior = (hi >= 0) && (lo + support_len <= ymax);
 
-            // 刚度矩阵: c̃_{l,k} = ∫ φ''_{j,k}(x) φ_{j,l}(x) dx
-            // φ''_{j,k}(x) = 2^{j/2} · 2^{2j} φ''(2^j x - k)
-            // = 2^{5j/2} φ''(2^j x - k)
-            // c̃_{l,k} = ∫ 2^{5j/2} φ''(2^j x - k) · 2^{j/2} φ(2^j x - l) dx
-            // = 2^{3j} ∫ φ''(y-k) φ(y-l) dy  (y = 2^j x, dy = 2^j dx)
-            // Wait, let me recompute:
-            // φ_{j,k}(x) = 2^{j/2} φ(2^j x - k)
-            // φ_{j,k}''(x) = 2^{j/2} · (2^j)² φ''(2^j x - k) = 2^{5j/2} φ''(2^j x - k)
-            // ∫ φ_{j,k}''(x) φ_{j,l}(x) dx
-            // = ∫ 2^{5j/2} φ''(2^j x - k) · 2^{j/2} φ(2^j x - l) dx
-            // = 2^{3j} ∫ φ''(y-k) φ(y-l) · 2^{-j} dy
-            // = 2^{2j} ∫ φ''(y-k) φ(y-l) dy
-            // = 2^{2j} [C_{k-l}^2(2^{j+1} - l) - C_{k-l}^2(-l)]
-            double scale = std::pow(2.0, 2 * config_.j);
-            C_(l_idx, k_idx) = scale * (
-                conn_->eval_C(d, 2, upper) - conn_->eval_C(d, 2, lower)
-            );
+            if (interior) {
+                // 内部：质量矩阵由正交归一性精确给出 = δ；刚度由 LRT 精确给出
+                A_(l_idx, k_idx) = (d == 0) ? 1.0 : 0.0;
+                C_(l_idx, k_idx) = -scale * Gamma[d + Dmax];
+            } else {
+                // 边界函数：支撑被区间截断，暂用原数值积分（截断连接系数）
+                double upper = ymax - l;
+                double lower = -l;
+                A_(l_idx, k_idx) = conn_->eval_C(d, 0, upper)
+                                 - conn_->eval_C(d, 0, lower);
+                C_(l_idx, k_idx) = scale * (
+                    conn_->eval_C(d, 2, upper) - conn_->eval_C(d, 2, lower)
+                );
+            }
         }
     }
 
@@ -280,172 +287,152 @@ void WaveletFEMSolver::apply_boundary_conditions(
     double Lx = config_.bx - config_.ax;
     double Ly = config_.by - config_.ay;
 
-    // 边界指标在基函数指标集中的位置
-    // k_min 对应 x 方向的第一个基函数
-    // k_max 对应 x 方向的最后一个基函数
+    // ------------------------------------------------------------
+    // 基函数在边界点的求值（对每个基函数指标 a 都计算）
+    //   φ_a(x) = 2^{j/2} φ(2^j x - (k_min + a))
+    //   φ_a'(x) = d/dx，用物理坐标中心差分（自动含 2^j 因子）
+    // ------------------------------------------------------------
+    auto phi_at = [&](int a, double xx) -> double {
+        return sqrt_pow2_j * conn_->eval_phi(pow2_j * xx - (k_min_ + a));
+    };
+    auto dphi_at = [&](int a, double xx) -> double {
+        double ex = 1e-5;
+        return (phi_at(a, xx + ex) - phi_at(a, xx - ex)) / (2.0 * ex);
+    };
 
-    // ---- 边 0: x = ax (左边界) ----
-    // 边界条件: -b_0 ∂u/∂x(ax, y, t) + d_0 u(ax, y, t) = g_0(y, t)
+    // 边界行系数因子 B_a = ±b φ_a'(x_b) + d φ_a(x_b)
+    // 投影后的边界方程：  Σ_{a,b} U_{a,b} B_a A_{b,m} = g_m
+    // （x 边界对 x 指标 a 作用、对 y 用质量矩阵投影；y 边界对称处理）
+
+    // ---- 边 0: x = ax (左边界)  -b ∂u/∂x + d u = g_0 ----
     {
-        double b_bc = config_.b[0];
-        double d_bc = config_.d[0];
-        int i_boundary = 0;
+        double b_bc = config_.b[0], d_bc = config_.d[0];
         double x0 = config_.ax;
-        double arg_x0 = pow2_j * x0 - k_min_;
-
-        double phi_at_0 = sqrt_pow2_j * conn_->eval_phi(arg_x0);
-        double eps = 1e-6;
-        double phi_plus = sqrt_pow2_j * conn_->eval_phi(arg_x0 + eps);
-        double phi_minus = sqrt_pow2_j * conn_->eval_phi(arg_x0 - eps);
-        double dphi_val = (phi_plus - phi_minus) / (2.0 * eps);
+        std::vector<double> B(n_);
+        for (int a = 0; a < n_; ++a)
+            B[a] = -b_bc * dphi_at(a, x0) + d_bc * phi_at(a, x0);
 
         for (int m = 0; m < n_; ++m) {
-            int row = i_boundary * n_ + m;
+            int row = 0 * n_ + m;          // x 指标 = 0，y 指标 = m
             int k_m = k_min_ + m;
+            for (int col = 0; col < n2; ++col) L.coeffRef(row, col) = 0.0;
 
-            // 清除该行所有非零元
-            for (int col = 0; col < n2; ++col) {
-                double& val = L.coeffRef(row, col);
-                val = 0.0;
-            }
-
-            // 计算 g 的积分
             double g_int = 0.0;
-            int nq = 100;
-            double hy = Ly / nq;
+            int nq = 100; double hy = Ly / nq;
             for (int iy = 0; iy < nq; ++iy) {
                 double y_mid = config_.ay + (iy + 0.5) * hy;
                 double g_val = g_[0](config_.ax, y_mid, t);
-                double arg_y = pow2_j * y_mid - k_m;
-                double phi_y = sqrt_pow2_j * conn_->eval_phi(arg_y);
-                g_int += g_val * phi_y * hy;
+                g_int += g_val * sqrt_pow2_j * conn_->eval_phi(pow2_j * y_mid - k_m) * hy;
             }
 
-            // 设置边界行
-            for (int i = 0; i < n_; ++i) {
-                int col = i_boundary * n_ + i;
-                double coeff = (-b_bc * dphi_val + d_bc * phi_at_0) * A_(m, i);
-                L.coeffRef(row, col) = coeff;
+            for (int a = 0; a < n_; ++a) {
+                if (std::abs(B[a]) < 1e-15) continue;
+                for (int b = 0; b < n_; ++b) {
+                    double coeff = B[a] * A_(b, m);
+                    if (std::abs(coeff) < 1e-15) continue;
+                    L.coeffRef(row, a * n_ + b) = coeff;
+                }
             }
             rhs(row) = g_int;
         }
     }
 
-    // ---- 边 1: x = bx (右边界) ----
+    // ---- 边 1: x = bx (右边界)  +b ∂u/∂x + d u = g_1 ----
     {
-        double b_bc = config_.b[1];
-        double d_bc = config_.d[1];
-        int i_boundary = n_ - 1;
-        int k_max = k_min_ + n_ - 1;
+        double b_bc = config_.b[1], d_bc = config_.d[1];
         double x1 = config_.bx;
-        double arg_x1 = pow2_j * x1 - k_max;
-
-        double phi_at_L = sqrt_pow2_j * conn_->eval_phi(arg_x1);
-        double eps = 1e-6;
-        double phi_plus = sqrt_pow2_j * conn_->eval_phi(arg_x1 + eps);
-        double phi_minus = sqrt_pow2_j * conn_->eval_phi(arg_x1 - eps);
-        double dphi_val = (phi_plus - phi_minus) / (2.0 * eps);
+        std::vector<double> B(n_);
+        for (int a = 0; a < n_; ++a)
+            B[a] = b_bc * dphi_at(a, x1) + d_bc * phi_at(a, x1);
 
         for (int m = 0; m < n_; ++m) {
-            int row = i_boundary * n_ + m;
+            int row = (n_ - 1) * n_ + m;   // x 指标 = n-1，y 指标 = m
             int k_m = k_min_ + m;
-
             for (int col = 0; col < n2; ++col) L.coeffRef(row, col) = 0.0;
 
             double g_int = 0.0;
-            int nq = 100;
-            double hy = Ly / nq;
+            int nq = 100; double hy = Ly / nq;
             for (int iy = 0; iy < nq; ++iy) {
                 double y_mid = config_.ay + (iy + 0.5) * hy;
                 double g_val = g_[1](config_.bx, y_mid, t);
-                double arg_y = pow2_j * y_mid - k_m;
-                double phi_y = sqrt_pow2_j * conn_->eval_phi(arg_y);
-                g_int += g_val * phi_y * hy;
+                g_int += g_val * sqrt_pow2_j * conn_->eval_phi(pow2_j * y_mid - k_m) * hy;
             }
 
-            for (int i = 0; i < n_; ++i) {
-                int col = i_boundary * n_ + i;
-                double coeff = (b_bc * dphi_val + d_bc * phi_at_L) * A_(m, i);
-                L.coeffRef(row, col) = coeff;
+            for (int a = 0; a < n_; ++a) {
+                if (std::abs(B[a]) < 1e-15) continue;
+                for (int b = 0; b < n_; ++b) {
+                    double coeff = B[a] * A_(b, m);
+                    if (std::abs(coeff) < 1e-15) continue;
+                    L.coeffRef(row, a * n_ + b) = coeff;
+                }
             }
             rhs(row) = g_int;
         }
     }
 
-    // ---- 边 2: y = ay (下边界) ----
+    // ---- 边 2: y = ay (下边界)  -b ∂u/∂y + d u = g_2 ----
     {
-        double b_bc = config_.b[2];
-        double d_bc = config_.d[2];
+        double b_bc = config_.b[2], d_bc = config_.d[2];
         double y0 = config_.ay;
-        double arg_y0 = pow2_j * y0 - k_min_;
-
-        double phi_at_0 = sqrt_pow2_j * conn_->eval_phi(arg_y0);
-        double eps = 1e-6;
-        double phi_plus = sqrt_pow2_j * conn_->eval_phi(arg_y0 + eps);
-        double phi_minus = sqrt_pow2_j * conn_->eval_phi(arg_y0 - eps);
-        double dphi_val = (phi_plus - phi_minus) / (2.0 * eps);
+        std::vector<double> B(n_);   // 依赖 y 指标 b
+        for (int b = 0; b < n_; ++b)
+            B[b] = -b_bc * dphi_at(b, y0) + d_bc * phi_at(b, y0);
 
         for (int l = 0; l < n_; ++l) {
-            int row = l * n_ + 0;
+            int row = l * n_ + 0;          // x 指标 = l，y 指标 = 0
             int k_l = k_min_ + l;
-
             for (int col = 0; col < n2; ++col) L.coeffRef(row, col) = 0.0;
 
             double g_int = 0.0;
-            int nq = 100;
-            double hx = Lx / nq;
+            int nq = 100; double hx = Lx / nq;
             for (int ix = 0; ix < nq; ++ix) {
                 double x_mid = config_.ax + (ix + 0.5) * hx;
                 double g_val = g_[2](x_mid, config_.ay, t);
-                double arg_x = pow2_j * x_mid - k_l;
-                double phi_x = sqrt_pow2_j * conn_->eval_phi(arg_x);
-                g_int += g_val * phi_x * hx;
+                g_int += g_val * sqrt_pow2_j * conn_->eval_phi(pow2_j * x_mid - k_l) * hx;
             }
 
-            for (int i = 0; i < n_; ++i) {
-                int col = l * n_ + i;
-                double coeff = (-b_bc * dphi_val + d_bc * phi_at_0) * A_(l, i);
-                L.coeffRef(row, col) = coeff;
+            for (int a = 0; a < n_; ++a) {       // x 指标
+                double Aal = A_(a, l);
+                if (std::abs(Aal) < 1e-15) continue;
+                for (int b = 0; b < n_; ++b) {   // y 指标
+                    double coeff = B[b] * Aal;
+                    if (std::abs(coeff) < 1e-15) continue;
+                    L.coeffRef(row, a * n_ + b) = coeff;
+                }
             }
             rhs(row) = g_int;
         }
     }
 
-    // ---- 边 3: y = by (上边界) ----
+    // ---- 边 3: y = by (上边界)  +b ∂u/∂y + d u = g_3 ----
     {
-        double b_bc = config_.b[3];
-        double d_bc = config_.d[3];
-        int k_max = k_min_ + n_ - 1;
+        double b_bc = config_.b[3], d_bc = config_.d[3];
         double y1 = config_.by;
-        double arg_y1 = pow2_j * y1 - k_max;
-
-        double phi_at_L = sqrt_pow2_j * conn_->eval_phi(arg_y1);
-        double eps = 1e-6;
-        double phi_plus = sqrt_pow2_j * conn_->eval_phi(arg_y1 + eps);
-        double phi_minus = sqrt_pow2_j * conn_->eval_phi(arg_y1 - eps);
-        double dphi_val = (phi_plus - phi_minus) / (2.0 * eps);
+        std::vector<double> B(n_);
+        for (int b = 0; b < n_; ++b)
+            B[b] = b_bc * dphi_at(b, y1) + d_bc * phi_at(b, y1);
 
         for (int l = 0; l < n_; ++l) {
-            int row = l * n_ + (n_ - 1);
+            int row = l * n_ + (n_ - 1);   // x 指标 = l，y 指标 = n-1
             int k_l = k_min_ + l;
-
             for (int col = 0; col < n2; ++col) L.coeffRef(row, col) = 0.0;
 
             double g_int = 0.0;
-            int nq = 100;
-            double hx = Lx / nq;
+            int nq = 100; double hx = Lx / nq;
             for (int ix = 0; ix < nq; ++ix) {
                 double x_mid = config_.ax + (ix + 0.5) * hx;
                 double g_val = g_[3](x_mid, config_.by, t);
-                double arg_x = pow2_j * x_mid - k_l;
-                double phi_x = sqrt_pow2_j * conn_->eval_phi(arg_x);
-                g_int += g_val * phi_x * hx;
+                g_int += g_val * sqrt_pow2_j * conn_->eval_phi(pow2_j * x_mid - k_l) * hx;
             }
 
-            for (int i = 0; i < n_; ++i) {
-                int col = l * n_ + i;
-                double coeff = (b_bc * dphi_val + d_bc * phi_at_L) * A_(l, i);
-                L.coeffRef(row, col) = coeff;
+            for (int a = 0; a < n_; ++a) {
+                double Aal = A_(a, l);
+                if (std::abs(Aal) < 1e-15) continue;
+                for (int b = 0; b < n_; ++b) {
+                    double coeff = B[b] * Aal;
+                    if (std::abs(coeff) < 1e-15) continue;
+                    L.coeffRef(row, a * n_ + b) = coeff;
+                }
             }
             rhs(row) = g_int;
         }

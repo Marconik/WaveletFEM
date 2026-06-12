@@ -12,105 +12,67 @@ set palette defined (0 'blue', 1 'cyan', 2 'yellow', 3 'red')
 set cblabel 'u(x,y,t)'
 set size square
 
-array Timestamps[98]
+array Timestamps[60]
 Timestamps[1] = 0.000000
-Timestamps[2] = 0.001000
-Timestamps[3] = 0.002000
-Timestamps[4] = 0.003000
-Timestamps[5] = 0.004000
-Timestamps[6] = 0.005000
-Timestamps[7] = 0.006000
-Timestamps[8] = 0.007000
-Timestamps[9] = 0.008000
-Timestamps[10] = 0.009000
-Timestamps[11] = 0.010000
-Timestamps[12] = 0.011500
-Timestamps[13] = 0.013000
-Timestamps[14] = 0.014500
-Timestamps[15] = 0.016000
-Timestamps[16] = 0.017500
-Timestamps[17] = 0.019000
-Timestamps[18] = 0.020500
-Timestamps[19] = 0.022000
-Timestamps[20] = 0.023500
-Timestamps[21] = 0.025000
-Timestamps[22] = 0.027250
-Timestamps[23] = 0.029500
-Timestamps[24] = 0.031750
-Timestamps[25] = 0.034000
-Timestamps[26] = 0.036250
-Timestamps[27] = 0.038500
-Timestamps[28] = 0.040750
-Timestamps[29] = 0.043000
-Timestamps[30] = 0.045250
-Timestamps[31] = 0.047500
-Timestamps[32] = 0.050875
-Timestamps[33] = 0.054250
-Timestamps[34] = 0.057625
-Timestamps[35] = 0.061000
-Timestamps[36] = 0.064375
-Timestamps[37] = 0.067750
-Timestamps[38] = 0.071125
-Timestamps[39] = 0.074500
-Timestamps[40] = 0.077875
-Timestamps[41] = 0.081250
-Timestamps[42] = 0.086313
-Timestamps[43] = 0.091375
-Timestamps[44] = 0.096438
-Timestamps[45] = 0.101500
-Timestamps[46] = 0.106563
-Timestamps[47] = 0.111625
-Timestamps[48] = 0.116688
-Timestamps[49] = 0.121750
-Timestamps[50] = 0.126813
-Timestamps[51] = 0.131875
-Timestamps[52] = 0.139469
-Timestamps[53] = 0.147063
-Timestamps[54] = 0.154656
-Timestamps[55] = 0.162250
-Timestamps[56] = 0.169844
-Timestamps[57] = 0.177438
-Timestamps[58] = 0.185031
-Timestamps[59] = 0.192625
-Timestamps[60] = 0.200219
-Timestamps[61] = 0.207813
-Timestamps[62] = 0.219203
-Timestamps[63] = 0.230594
-Timestamps[64] = 0.241984
-Timestamps[65] = 0.253375
-Timestamps[66] = 0.264766
-Timestamps[67] = 0.276156
-Timestamps[68] = 0.287547
-Timestamps[69] = 0.298938
-Timestamps[70] = 0.310328
-Timestamps[71] = 0.321719
-Timestamps[72] = 0.338805
-Timestamps[73] = 0.355891
-Timestamps[74] = 0.372977
-Timestamps[75] = 0.390062
-Timestamps[76] = 0.407148
-Timestamps[77] = 0.424234
-Timestamps[78] = 0.441320
-Timestamps[79] = 0.458406
-Timestamps[80] = 0.475492
-Timestamps[81] = 0.492578
-Timestamps[82] = 0.518207
-Timestamps[83] = 0.543836
-Timestamps[84] = 0.569465
-Timestamps[85] = 0.595094
-Timestamps[86] = 0.620723
-Timestamps[87] = 0.646352
-Timestamps[88] = 0.671980
-Timestamps[89] = 0.697609
-Timestamps[90] = 0.723238
-Timestamps[91] = 0.748867
-Timestamps[92] = 0.787311
-Timestamps[93] = 0.825754
-Timestamps[94] = 0.864197
-Timestamps[95] = 0.902641
-Timestamps[96] = 0.941084
-Timestamps[97] = 0.979527
-Timestamps[98] = 1.000000
+Timestamps[2] = 0.005000
+Timestamps[3] = 0.010000
+Timestamps[4] = 0.015000
+Timestamps[5] = 0.020000
+Timestamps[6] = 0.025000
+Timestamps[7] = 0.030000
+Timestamps[8] = 0.035000
+Timestamps[9] = 0.040000
+Timestamps[10] = 0.045000
+Timestamps[11] = 0.050000
+Timestamps[12] = 0.057500
+Timestamps[13] = 0.065000
+Timestamps[14] = 0.072500
+Timestamps[15] = 0.080000
+Timestamps[16] = 0.087500
+Timestamps[17] = 0.095000
+Timestamps[18] = 0.102500
+Timestamps[19] = 0.110000
+Timestamps[20] = 0.117500
+Timestamps[21] = 0.125000
+Timestamps[22] = 0.136250
+Timestamps[23] = 0.147500
+Timestamps[24] = 0.158750
+Timestamps[25] = 0.170000
+Timestamps[26] = 0.181250
+Timestamps[27] = 0.192500
+Timestamps[28] = 0.203750
+Timestamps[29] = 0.215000
+Timestamps[30] = 0.226250
+Timestamps[31] = 0.237500
+Timestamps[32] = 0.254375
+Timestamps[33] = 0.271250
+Timestamps[34] = 0.288125
+Timestamps[35] = 0.305000
+Timestamps[36] = 0.321875
+Timestamps[37] = 0.338750
+Timestamps[38] = 0.355625
+Timestamps[39] = 0.372500
+Timestamps[40] = 0.389375
+Timestamps[41] = 0.406250
+Timestamps[42] = 0.431562
+Timestamps[43] = 0.456875
+Timestamps[44] = 0.482187
+Timestamps[45] = 0.507500
+Timestamps[46] = 0.532812
+Timestamps[47] = 0.558125
+Timestamps[48] = 0.583437
+Timestamps[49] = 0.608750
+Timestamps[50] = 0.634062
+Timestamps[51] = 0.659375
+Timestamps[52] = 0.697344
+Timestamps[53] = 0.735312
+Timestamps[54] = 0.773281
+Timestamps[55] = 0.811250
+Timestamps[56] = 0.849219
+Timestamps[57] = 0.887187
+Timestamps[58] = 0.925156
+Timestamps[59] = 0.963125
+Timestamps[60] = 1.000000
 
 set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[1])
 splot 'results/step_0000.dat' matrix with image notitle
@@ -291,117 +253,3 @@ splot 'results/step_0058.dat' matrix with image notitle
 
 set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[60])
 splot 'results/step_0059.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[61])
-splot 'results/step_0060.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[62])
-splot 'results/step_0061.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[63])
-splot 'results/step_0062.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[64])
-splot 'results/step_0063.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[65])
-splot 'results/step_0064.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[66])
-splot 'results/step_0065.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[67])
-splot 'results/step_0066.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[68])
-splot 'results/step_0067.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[69])
-splot 'results/step_0068.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[70])
-splot 'results/step_0069.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[71])
-splot 'results/step_0070.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[72])
-splot 'results/step_0071.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[73])
-splot 'results/step_0072.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[74])
-splot 'results/step_0073.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[75])
-splot 'results/step_0074.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[76])
-splot 'results/step_0075.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[77])
-splot 'results/step_0076.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[78])
-splot 'results/step_0077.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[79])
-splot 'results/step_0078.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[80])
-splot 'results/step_0079.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[81])
-splot 'results/step_0080.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[82])
-splot 'results/step_0081.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[83])
-splot 'results/step_0082.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[84])
-splot 'results/step_0083.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[85])
-splot 'results/step_0084.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[86])
-splot 'results/step_0085.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[87])
-splot 'results/step_0086.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[88])
-splot 'results/step_0087.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[89])
-splot 'results/step_0088.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[90])
-splot 'results/step_0089.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[91])
-splot 'results/step_0090.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[92])
-splot 'results/step_0091.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[93])
-splot 'results/step_0092.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[94])
-splot 'results/step_0093.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[95])
-splot 'results/step_0094.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[96])
-splot 'results/step_0095.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[97])
-splot 'results/step_0096.dat' matrix with image notitle
-
-set title sprintf('2D Heat Equation - Wavelet Galerkin FEM\\nt = %.4f', Timestamps[98])
-splot 'results/step_0097.dat' matrix with image notitle

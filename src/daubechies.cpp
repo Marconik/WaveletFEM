@@ -351,95 +351,56 @@ void evaluate_scaling_function(int N,
 
 std::vector<double> cascade_scaling_function(int N, int level) {
     // ============================================================
-    // 标准级联算法：从 Kronecker delta 出发迭代应用胀缩方程
-    // φ_{m+1}(x) = √2 Σ_k h_k φ_m(2x - k)
-    // 经过足够多次迭代后收敛到真实的 φ
+    // 固定分辨率级联迭代（fixed-grid cascade）
+    //   网格 x_i = i / 2^level, i = 0..n_out-1, 覆盖支撑 [0, 2N-1]
+    //   迭代映射: φ_new[i] = √2 Σ_k h_k φ_old[2i - k·2^level]
+    //
+    // 与"从 δ 出发翻倍数组"的原始级联相比：
+    //   - 内存固定为 O(n_out)（两个等大数组倒换），不再指数级膨胀
+    //   - 仍是迭代格式，保留级联的收敛/自纠错特性
+    // 用整数点特征值作为初值（整数节点是迭代的精确不动点），收敛极快：
+    //   经过 level 次迭代，所有二进网格点即达机器精度。
     // ============================================================
+
+    int support_len = 2 * N - 1;
+    int n_out = support_len * (1 << level) + 1;
+    int stride = 1 << level;          // 相邻整数点之间的网格步数 = 2^level
 
     auto h = daubechies_filter_coefficients(N);
     int L = 2 * N;
     double sqrt2 = std::sqrt(2.0);
-    int support_len = 2 * N - 1;
 
-    // 从 Kronecker delta 开始（初始化为 δ 函数在原点）
-    std::vector<double> cur = {1.0};
+    // 初值：整数点 φ(k) 线性插值（整数节点精确，中间点由迭代细化）
+    std::vector<double> phi_ints, dphi_ints;
+    evaluate_scaling_function(N, phi_ints, dphi_ints);
 
-    // 级联迭代次数：需足够多以收敛
-    int cascade_iters = level + 12;  // 额外 12 次确保收敛
-
-    for (int iter = 0; iter < cascade_iters; ++iter) {
-        int nc = (int)cur.size();
-        // 上采样（插入零）
-        int n_up = 2 * nc;
-        std::vector<double> up(n_up, 0.0);
-        for (int i = 0; i < nc; ++i) up[2 * i] = cur[i];
-
-        // 卷积滤波
-        int n_next = n_up + L - 1;
-        std::vector<double> next(n_next, 0.0);
-        for (int n = 0; n < n_next; ++n) {
-            double sum = 0.0;
-            for (int k = 0; k < L; ++k) {
-                int src = n - k;
-                if (src >= 0 && src < n_up)
-                    sum += h[k] * up[src];
-            }
-            next[n] = sqrt2 * sum;
-        }
-        cur = next;
-    }
-
-    // 级联收敛后，phi 的中心位于约 (L-1)/2 处
-    // 提取支撑 [0, 2N-1] 对应的数值
-    // 经过 cascade_iters 次迭代，间距 = 2^{-cascade_iters}
-    // 最终目标间距 = 2^{-level}
-    int downsample = 1 << (cascade_iters - level);
-    int n_out = support_len * (1 << level) + 1;
-
-    std::vector<double> result(n_out, 0.0);
-
-    // 寻找 phi 的起始位置：在级联输出中，phi 的中心对应级联起始的 delta 位置
-    // 经过 convergent 迭代，delta 扩散到覆盖整个支撑
-    // phi 的支撑 [0, 2N-1] 在级联输出中对应某个偏移范围
-    // 使用 phi(0) ≈ 0 和 phi(2N-1) ≈ 0 来确定偏移量
-
-    // 计算级联输出的总支撑对应的物理区间
-    // 查找最大值位置以确定 phi 的峰值位置
-    double max_val = 0.0;
-    int max_idx = 0;
-    for (int i = 0; i < (int)cur.size(); ++i) {
-        if (std::abs(cur[i]) > max_val) {
-            max_val = std::abs(cur[i]);
-            max_idx = i;
-        }
-    }
-
-    // phi 的峰值大约在 N - 0.5 附近（对于 Daubechies N）
-    // 级联中峰值在 max_idx，对应物理位置约为 max_idx / 2^{cascade_iters}
-    // phi 的支撑起始物理位置 = 峰值位置 - (峰值在支撑内的偏移)
-    // 峰值在支撑内的偏移 ≈ N - 0.5（实际略有不同）
-    // 支撑起始物理位置 ≈ max_idx/2^{cascade_iters} - (N - 0.5)
-
-    // 简化处理：利用 phi(0)=0，找到从 max_idx 向左的第一个零交叉
-    // 但这对于光滑的 phi 不太可靠
-
-    // 实际上级联从 delta(0) 出发，经过 iter 次迭代后
-    // φ(x) 近似位于 x ∈ [shift, shift + 2N-1]
-    // 其中 shift 由滤波器系数决定
-    // 对于 Daubechies 正交小波，shift = 0（精确地）
-    // 所以级联输出的位置 0 对应于 φ(0)
-
-    // 级联中第 k 个采样点对应物理位置 k / 2^{cascade_iters}
-    // 要获取 φ(i / 2^{level})，需取级联输出中的索引 i * 2^{cascade_iters - level}
-    // 即 i * downsample
-
+    std::vector<double> cur(n_out, 0.0), next(n_out, 0.0);
     for (int i = 0; i < n_out; ++i) {
-        int src_idx = i * downsample;
-        if (src_idx >= 0 && src_idx < (int)cur.size())
-            result[i] = cur[src_idx];
+        double x = (double)i / stride;
+        int k0 = (int)x;
+        double frac = x - k0;
+        double a = (k0 >= 0 && k0 < (int)phi_ints.size()) ? phi_ints[k0] : 0.0;
+        double b = (k0 + 1 >= 0 && k0 + 1 < (int)phi_ints.size()) ? phi_ints[k0 + 1] : 0.0;
+        cur[i] = (1.0 - frac) * a + frac * b;
     }
 
-    return result;
+    // 固定网格上原地迭代；level 次后二进网格点精确（再加几次裕量）
+    int iters = level + 2;
+    for (int it = 0; it < iters; ++it) {
+        for (int i = 0; i < n_out; ++i) {
+            double sum = 0.0;
+            int two_i = 2 * i;
+            for (int k = 0; k < L; ++k) {
+                int j = two_i - k * stride;
+                if (j < 0) break;             // j 随 k 增大单调减小
+                if (j < n_out) sum += h[k] * cur[j];
+            }
+            next[i] = sqrt2 * sum;
+        }
+        std::swap(cur, next);
+    }
+
+    return cur;
 }
 
 std::vector<double> cascade_scaling_function_d2(int N, int level) {
@@ -483,4 +444,56 @@ std::vector<double> cascade_scaling_function_d2(int N, int level) {
     }
 
     return d2phi;
+}
+
+// ============================================================
+// LRT 二阶连接系数 Γ_d = ∫ φ'(x) φ'(x-d) dx
+// 通过双尺度方程导出的特征方程精确求解（无数值积分）
+//   Γ_d = 4 Σ_{m,n} h_m h_n Γ_{2d + n - m}
+// 即 Γ = T Γ（特征值 1），矩条件 Σ_d d² Γ_d = -2 定标。
+// ============================================================
+
+std::vector<double> connection_coeff_d1d1(int N) {
+    auto h = daubechies_filter_coefficients(N);   // 长度 2N
+    int L = 2 * N;
+    int D = 2 * N - 2;            // 最大 |d|
+    int M = 2 * D + 1;            // = 4N - 3
+    auto idx = [&](int d) { return d + D; };
+
+    // 构造转移矩阵 T_{d,d'} = 4 Σ_m h_m h_{m + d' - 2d}
+    Eigen::MatrixXd T = Eigen::MatrixXd::Zero(M, M);
+    for (int d = -D; d <= D; ++d) {
+        for (int dp = -D; dp <= D; ++dp) {
+            double s = 0.0;
+            for (int m = 0; m < L; ++m) {
+                int n = m + dp - 2 * d;   // h 下标
+                if (n >= 0 && n < L) s += h[m] * h[n];
+            }
+            T(idx(d), idx(dp)) = 4.0 * s;
+        }
+    }
+
+    // 求特征值最接近 1 的特征向量（即 Γ = T Γ 的解）
+    Eigen::EigenSolver<Eigen::MatrixXd> es(T);
+    Eigen::VectorXcd evals = es.eigenvalues();
+    Eigen::MatrixXcd evecs = es.eigenvectors();
+
+    int best = 0;
+    double best_dist = std::abs(evals(0) - 1.0);
+    for (int i = 1; i < M; ++i) {
+        double dist = std::abs(evals(i) - 1.0);
+        if (dist < best_dist) { best_dist = dist; best = i; }
+    }
+
+    Eigen::VectorXd gamma(M);
+    for (int i = 0; i < M; ++i) gamma(i) = evecs(i, best).real();
+
+    // 矩条件定标: Σ_d d² Γ_d = -2
+    double moment = 0.0;
+    for (int d = -D; d <= D; ++d) moment += (double)d * d * gamma(idx(d));
+    if (std::abs(moment) > 1e-14) gamma *= (-2.0 / moment);
+
+    std::vector<double> result(M);
+    for (int i = 0; i < M; ++i) result[i] = gamma(i);
+    return result;
 }

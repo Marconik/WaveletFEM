@@ -28,4 +28,11 @@ std::vector<double> cascade_scaling_function(int N, int level);
 /// 结果数组大小与 cascade_scaling_function 相同
 std::vector<double> cascade_scaling_function_d2(int N, int level);
 
+/// 用 Latto–Resnikoff–Tenenbaum (LRT) 方法精确计算全直线二阶连接系数
+///   Γ_d = ∫_{-∞}^{∞} φ'(x) φ'(x - d) dx,  d = -(2N-2) .. (2N-2)
+/// 通过双尺度方程导出特征方程 Γ = T Γ（特征值 1），再用矩条件
+///   Σ_d d² Γ_d = -2 唯一定标。完全不依赖 φ 的逐点采样或数值积分。
+/// 返回长度 4N-3 的向量，下标 i 对应 d = i - (2N-2)。
+std::vector<double> connection_coeff_d1d1(int N);
+
 #endif // WAVELET_FEM_DAUBECHIES_H
